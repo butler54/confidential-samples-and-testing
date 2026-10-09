@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-SCRIPTS_DIR=${SCRIPTS_DIR:-/opt/sample}
+SCRIPTS_DIR=/opt/sample
 # shellcheck source=log.sh
 . "$SCRIPTS_DIR/log.sh"
 DATA_DIR=${DATA_DIR:?}

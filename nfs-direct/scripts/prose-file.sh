@@ -1,12 +1,12 @@
 #!/bin/sh
 set -eu
-SCRIPTS_DIR=${SCRIPTS_DIR:-/opt/sample}
+SCRIPTS_DIR=/opt/sample
 # shellcheck source=log.sh
 . "$SCRIPTS_DIR/log.sh"
 DATA_DIR=${DATA_DIR:?}
-CONTROL_DIR=${CONTROL_DIR:-/run/sample}
+CONTROL_DIR=/run/sample
 FILE_NAME=${FILE_NAME:?}
-OP_TIMEOUT=${OP_TIMEOUT:-5}
+OP_TIMEOUT=5
 CREATED=false
 case "$FILE_NAME" in ''|*[!A-Za-z0-9_.-]*|.*) fail_startup file file_type_invalid ;; esac
 timeout -k 2 "$OP_TIMEOUT" sh "$SCRIPTS_DIR/storage-access.sh" --check || fail_startup storage mount_source_mismatch
@@ -24,7 +24,8 @@ prose='This file demonstrates persistent storage for this confidential container
 file=$FILE_NAME
 umask 077
 expected=$(mktemp "$CONTROL_DIR/expected.XXXXXX")
-trap 'rm -f "$expected"' EXIT HUP INT TERM
+trap 'rm -f "$expected"' EXIT
+trap 'exit 1' HUP INT TERM
 printf '%s\n' "$prose" > "$expected"
 if [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
   fail_startup file file_type_invalid

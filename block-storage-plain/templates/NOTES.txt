@@ -1,13 +1,4 @@
-{{ .Chart.Name }} deployed as {{ .Release.Name }} in {{ .Release.Namespace }}.
-Inspect the application logs for storage_accessible, then file_created or file_existing_verified.
-This is a debug-policy/root-in-guest lab example, not production hardening.
-{{- if eq .Chart.Name "nfs-direct" }}
-Direct NFS creates no PV/PVC. Uninstall leaves the external export and its files intact.
-{{- else }}
-WARNING: helm uninstall deletes the owned claim and, with a compatible Delete CSI provider, its backing volume and ALL DATA.
-Deleting only a pod preserves the claim and lets the Deployment replace the pod.
-{{- end }}
-{{- if eq .Chart.Name "block-storage-encrypted" }}
-Key mode: {{ .Values.keyDelivery.mode }}. Sealed mode requires corrected upstream debug initdata and signing trust (coco-pattern #153).
-No plaintext keys or sealed-token contents are included in these notes.
-{{- end }}
+Plain XFS block demonstration: {{ .Release.Name }} in {{ .Release.Namespace }}.
+Read README.md for prerequisites, expected logs and essential overrides.
+Pod replacement keeps the claim. Helm uninstall deletes owned block storage through provider reclamation.
+Testing only: uninstall/reinstall for chart changes; upgrades are unsupported.

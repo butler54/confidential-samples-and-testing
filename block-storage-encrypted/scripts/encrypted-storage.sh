@@ -1,25 +1,29 @@
 #!/bin/sh
 set -eu
-SCRIPTS_DIR=${SCRIPTS_DIR:-/opt/sample}
+# Capture guest-unsealed/explicitly insecure PASS before any child inherits it.
+key=${PASS:-}
+unset PASS
+SCRIPTS_DIR=/opt/sample
 # shellcheck source=log.sh
 . "$SCRIPTS_DIR/log.sh"
 # shellcheck source=device.sh
 . "$SCRIPTS_DIR/device.sh"
 # shellcheck source=key.sh
 . "$SCRIPTS_DIR/key.sh"
-CONTROL_DIR=${CONTROL_DIR:-/run/sample}
-DEVICE=${DEVICE:-/dev/block-device}
-MAPPER_NAME=${MAPPER_NAME:-sample-storage}
+CONTROL_DIR=/run/sample
+DEVICE=/dev/block-device
+MAPPER_NAME=${MAPPER_NAME:?}
 DATA_DIR=/mnt/storage
-PROC_ROOT=${PROC_ROOT:-/proc}
 case "$MAPPER_NAME" in sample-*) ;; *) fail_startup encryption invalid_mapper ;; esac
-case "$MAPPER_NAME" in *[!A-Za-z0-9_-]*) fail_startup encryption invalid_mapper ;; esac
+case "$MAPPER_NAME" in *[!A-Za-z0-9_.-]*) fail_startup encryption invalid_mapper ;; esac
 mapper="/dev/mapper/$MAPPER_NAME"
 child=
+temp=
 mapper_owned=false
 mounted_owned=false
 cleanup() {
   [ -z "$child" ] || kill "$child" 2>/dev/null || true
+  [ -z "$temp" ] || rm -f "$temp"
   if [ -f "$CONTROL_DIR/helper.state" ] && [ "$(awk '{print $1}' "$CONTROL_DIR/helper.state")" = "$$" ]; then
     rm -f "$CONTROL_DIR/helper.state"
   fi
@@ -45,8 +49,6 @@ case "${KEY_MODE:-curl}" in
     key=$(cat "$CONTROL_DIR/key")
     ;;
   sealed|insecureSecret)
-    key=${PASS:-}
-    unset PASS # Prevent inheritance by cryptsetup/other child processes.
     case "$key" in sealed.*) fail_startup key unprocessed_sealed_token ;; esac
     temp=$(mktemp "$CONTROL_DIR/env-key.XXXXXX")
     printf '%s' "$key" > "$temp"
@@ -64,7 +66,9 @@ case "$kind" in
   crypto_LUKS) ;;
   '')
     blank_device "$DEVICE" || fail_startup encryption nonblank_or_unreadable
-    printf '%s' "$key" | timeout -k 2 120 cryptsetup luksFormat --type luks2 --pbkdf argon2id --pbkdf-memory 65536 --batch-mode --key-file - "$DEVICE" >/dev/null || fail_startup encryption format_failed
+    printf '%s' "$key" | timeout -k 2 120 cryptsetup luksFormat --type luks2 \
+      --pbkdf argon2id --pbkdf-memory 65536 --batch-mode --key-file - "$DEVICE" \
+      >/dev/null || fail_startup encryption format_failed
     fresh=true
     ;;
   *) fail_startup encryption incompatible_signature ;;
@@ -98,12 +102,13 @@ if ! findmnt -rn -M "$DATA_DIR" >/dev/null; then
   timeout -k 2 30 mount -t xfs "$mapper" "$DATA_DIR" || fail_startup encryption mount_failed
   mounted_owned=true
 fi
-source=$(readlink -f "$mapper")
+source=$(readlink -f "$mapper") || fail_startup encryption mapper_source_mismatch
 mounted=$(findmnt -rn -M "$DATA_DIR" -o SOURCE,FSTYPE) || fail_startup encryption mount_failed
 actual_source=${mounted% *}
 [ "$(readlink -f "$actual_source")" = "$source" ] && [ "${mounted##* }" = xfs ] || fail_startup encryption mount_source_mismatch
 mounted_owned=true
-generation=$(sed 's/.*) //' "$PROC_ROOT/$$/stat" | awk '{print $20}')
+generation=$(sed 's/.*) //' "/proc/$$/stat" | awk '{print $20}')
+case "$generation" in ''|*[!0-9]*) fail_startup encryption helper_identity_failed ;; esac
 printf '%s %s %s\n' "$$" "$generation" "$actual_source" > "$CONTROL_DIR/helper.state.new"
 mv "$CONTROL_DIR/helper.state.new" "$CONTROL_DIR/helper.state"
 log_event encrypted_storage_mounted "path=$DATA_DIR"

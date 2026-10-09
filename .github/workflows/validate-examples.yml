@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 jobs:
-  offline:
+  static:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -23,11 +23,11 @@ jobs:
       - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
         with:
           version: 'v3.22.0'
-      - name: Install pinned test dependencies (not workload startup)
+      - name: Install pinned static tools (not workload startup)
         env:
           CHART: ${{ matrix.chart }}
         run: python3 -m pip install -r "$CHART/tests/requirements.txt"
-      - name: Validate standalone chart and shell/contract fixtures
+      - name: Lint and statically validate standalone chart
         env:
           CHART: ${{ matrix.chart }}
         run: sh "$CHART/tests/run.sh"

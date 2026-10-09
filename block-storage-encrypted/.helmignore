@@ -8,3 +8,5 @@ tests/
 *.private.json
 *.key
 *.crt
+.pytest_cache/
+*.tgz
