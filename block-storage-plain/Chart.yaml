@@ -1,0 +1,7 @@
+apiVersion: v2
+name: block-storage-plain
+description: Raw block storage formatted as XFS inside a confidential container
+type: application
+version: 0.1.0
+appVersion: "1.13.1"
+kubeVersion: ">=1.33.0-0"

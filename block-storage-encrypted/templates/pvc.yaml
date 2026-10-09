@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "sample.name" . }}-block
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sample.labels" . | nindent 4 }}
+  {{- with .Values.resourceAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  volumeMode: Block
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.storage.storageClass }}
+  storageClassName: {{ .Values.storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size | quote }}

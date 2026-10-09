@@ -1,0 +1,4 @@
+# Synthetic transport value for render tests only; NOT valid runtime initdata.
+initdata:
+  mode: inline
+  encoded: H4sIAAAAAAAA
