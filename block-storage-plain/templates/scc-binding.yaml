@@ -1,15 +1,9 @@
 {{- if .Values.security.sccBinding.create }}
+# Explicit lab opt-in: use one existing SCC through this release's account only.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "sample.name" . }}-scc
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "sample.labels" . | nindent 4 }}
-  {{- with .Values.resourceAnnotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+  name: {{ .Release.Name }}-scc
 rules:
   - apiGroups: [security.openshift.io]
     resources: [securitycontextconstraints]
@@ -19,20 +13,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "sample.name" . }}-scc
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "sample.labels" . | nindent 4 }}
-  {{- with .Values.resourceAnnotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+  name: {{ .Release.Name }}-scc
 subjects:
   - kind: ServiceAccount
-    name: {{ include "sample.account" . }}
+    name: {{ .Release.Name }}-sa
     namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "sample.name" . }}-scc
+  name: {{ .Release.Name }}-scc
 {{- end }}

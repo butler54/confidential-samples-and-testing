@@ -1,13 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "sample.name" . }}-scripts
-  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}-scripts
   labels:
-    {{- include "sample.labels" . | nindent 4 }}
-  {{- with .Values.resourceAnnotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 data:
-{{ (.Files.Glob "scripts/*.sh").AsConfig | indent 2 }}
+  {{- (.Files.Glob "scripts/*.sh").AsConfig | nindent 2 }}

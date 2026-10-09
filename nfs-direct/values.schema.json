@@ -2,29 +2,50 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": ["runtimeClassName", "initdata", "images", "storage", "startup", "serviceAccount", "security", "resources"],
+  "required": ["runtimeClassName", "initdata", "images", "imagePullPolicy", "imagePullSecrets", "startup", "resources", "security", "nfs"],
   "definitions": {
     "name": {"type": "string", "pattern": "^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$", "maxLength": 253},
-    "path": {"type": "string", "pattern": "^/([A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+$", "maxLength": 256},
-    "map": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[^\\r\\n]*$"}},
-    "image": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*(:[A-Za-z0-9][A-Za-z0-9._-]*|@sha256:[a-f0-9]{64})$", "not": {"pattern": ":(latest|stable|main)$"}},
-    "quantities": {"type": "object", "required": ["cpu", "memory"], "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 32}},
-    "resources": {"type": "object", "required": ["requests", "limits"], "additionalProperties": false, "properties": {"requests": {"$ref": "#/definitions/quantities"}, "limits": {"$ref": "#/definitions/quantities"}}}
+    "image": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*(:[A-Za-z0-9][A-Za-z0-9._-]*|@sha256:[a-f0-9]{64})$", "not": {"pattern": ":(latest|stable|main|master|nightly|edge|dev|canary)$"}},
+    "quantities": {"type": "object", "required": ["cpu", "memory"], "additionalProperties": {"type": "string", "minLength": 1}},
+    "resources": {"type": "object", "additionalProperties": false, "required": ["requests", "limits"], "properties": {"requests": {"$ref": "#/definitions/quantities"}, "limits": {"$ref": "#/definitions/quantities"}}}
   },
   "properties": {
     "runtimeClassName": {"$ref": "#/definitions/name"},
-    "initdata": {"type": "object", "additionalProperties": false, "required": ["mode"], "properties": {"mode": {"enum": ["configMap", "inline", "clusterDefault"]}, "configMapName": {"type": "string"}, "encoded": {"type": "string", "pattern": "^[A-Za-z0-9+/=]*$", "maxLength": 200000}}, "allOf": [{"if": {"properties": {"mode": {"const": "inline"}}}, "then": {"required": ["encoded"], "properties": {"encoded": {"minLength": 1}}}}, {"if": {"properties": {"mode": {"const": "configMap"}}}, "then": {"required": ["configMapName"], "properties": {"configMapName": {"$ref": "#/definitions/name"}}}}]},
-    "podLabels": {"$ref": "#/definitions/map"}, "podAnnotations": {"$ref": "#/definitions/map"},
-    "resourceLabels": {"$ref": "#/definitions/map"}, "resourceAnnotations": {"$ref": "#/definitions/map"},
-    "images": {"type": "object", "additionalProperties": false, "required": ["application", "storageHelper", "utility"], "properties": {"application": {"$ref": "#/definitions/image"}, "storageHelper": {"$ref": "#/definitions/image"}, "utility": {"$ref": "#/definitions/image"}}},
+    "initdata": {
+      "type": "object", "additionalProperties": false, "required": ["configMapName", "encoded"],
+      "properties": {
+        "configMapName": {"type": "string", "pattern": "^([a-z0-9]([a-z0-9.-]*[a-z0-9])?)?$", "maxLength": 253},
+        "encoded": {"type": "string", "pattern": "^[A-Za-z0-9+/=]*$", "maxLength": 200000}
+      }
+    },
+    "images": {
+      "type": "object", "additionalProperties": false, "required": ["storageHelper"],
+      "properties": {"storageHelper": {"$ref": "#/definitions/image"}}
+    },
     "imagePullPolicy": {"enum": ["IfNotPresent", "Always", "Never"]},
     "imagePullSecrets": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["name"], "properties": {"name": {"$ref": "#/definitions/name"}}}},
-    "storage": {"type": "object", "additionalProperties": false, "required": ["mountPath"], "properties": {"mountPath": {"$ref": "#/definitions/path"}, "size": {"type": "string", "pattern": "^[1-9][0-9]*(Ki|Mi|Gi|Ti)?$"}, "storageClass": {"oneOf": [{"type": "null"}, {"$ref": "#/definitions/name"}]}}},
-    "startup": {"type": "object", "additionalProperties": false, "required": ["timeoutSeconds", "pollSeconds"], "properties": {"timeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 3600}, "pollSeconds": {"type": "integer", "minimum": 1, "maximum": 30}}},
-    "resources": {"type": "object", "additionalProperties": false, "required": ["application", "storageHelper", "utility"], "properties": {"application": {"$ref": "#/definitions/resources"}, "storageHelper": {"$ref": "#/definitions/resources"}, "utility": {"$ref": "#/definitions/resources"}}},
-    "serviceAccount": {"type": "object", "additionalProperties": false, "required": ["create", "name"], "properties": {"create": {"type": "boolean"}, "name": {"type": "string", "pattern": "^([a-z0-9]([a-z0-9.-]*[a-z0-9])?)?$"}}},
-    "security": {"type": "object", "additionalProperties": false, "required": ["sccBinding"], "properties": {"sccBinding": {"type": "object", "additionalProperties": false, "required": ["create", "name"], "properties": {"create": {"type": "boolean"}, "name": {"$ref": "#/definitions/name"}}}}},
-    "nfs": {"type": "object", "additionalProperties": false, "required": ["server", "exportPath", "options"], "properties": {"server": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.:-]*$", "maxLength": 253}, "exportPath": {"oneOf": [{"const": "/"}, {"$ref": "#/definitions/path"}]}, "options": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._=-]*$", "maxLength": 80}}}},
-    "keyDelivery": {"type": "object", "additionalProperties": false, "required": ["mode", "kbs", "sealed", "insecureSecret"], "properties": {"mode": {"enum": ["curl", "sealed", "insecureSecret"]}, "kbs": {"type": "object", "additionalProperties": false, "required": ["resourcePath"], "properties": {"resourcePath": {"type": "string", "pattern": "^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$", "maxLength": 256}}}, "sealed": {"type": "object", "additionalProperties": false, "required": ["existingSecret", "envelope"], "properties": {"existingSecret": {"type": "object", "additionalProperties": false, "required": ["name", "key"], "properties": {"name": {"type": "string"}, "key": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}}}, "envelope": {"type": "string", "maxLength": 65536}}}, "insecureSecret": {"type": "object", "additionalProperties": false, "required": ["name", "key"], "properties": {"name": {"type": "string"}, "key": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}}}}}
+    "startup": {
+      "type": "object", "additionalProperties": false, "required": ["timeoutSeconds"],
+      "properties": {"timeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 3600}}
+    },
+    "resources": {
+      "type": "object", "additionalProperties": false, "required": ["application"],
+      "properties": {"application": {"$ref": "#/definitions/resources"}}
+    },
+    "security": {
+      "type": "object", "additionalProperties": false, "required": ["sccBinding"],
+      "properties": {"sccBinding": {
+        "type": "object", "additionalProperties": false, "required": ["create", "name"],
+        "properties": {"create": {"type": "boolean"}, "name": {"$ref": "#/definitions/name"}}
+      }}
+    },
+    "nfs": {
+      "type": "object", "additionalProperties": false, "required": ["server", "exportPath", "options"],
+      "properties": {
+        "server": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.:-]*$", "maxLength": 253},
+        "exportPath": {"type": "string", "pattern": "^/([A-Za-z0-9_-]+/)*[A-Za-z0-9_-]*$", "maxLength": 256},
+        "options": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._=-]*$", "maxLength": 80}}
+      }
+    }
   }
 }

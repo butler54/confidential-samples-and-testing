@@ -1,11 +1,11 @@
 #!/bin/sh
 set -eu
-SCRIPTS_DIR=${SCRIPTS_DIR:-/opt/sample}
+SCRIPTS_DIR=/opt/sample
 # shellcheck source=log.sh
 . "$SCRIPTS_DIR/log.sh"
 # shellcheck source=device.sh
 . "$SCRIPTS_DIR/device.sh"
-DEVICE=${DEVICE:-/dev/block-device}
+DEVICE=/dev/block-device
 DATA_DIR=$DEVICE
 kind=$(device_type "$DEVICE") || fail_startup format inspection_failed
 case "$kind" in

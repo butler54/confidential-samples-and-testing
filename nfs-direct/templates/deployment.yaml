@@ -1,120 +1,61 @@
-{{- include "sample.validate" . -}}
-{{- $encrypted := eq .Chart.Name "block-storage-encrypted" -}}
-{{- $nfs := eq .Chart.Name "nfs-direct" -}}
+{{- $server := .Values.nfs.server -}}
+{{- if contains ":" $server -}}
+{{- $server = printf "[%s]" $server -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "sample.name" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ .Release.Name }}
   labels:
-    {{- include "sample.labels" . | nindent 4 }}
-  {{- with .Values.resourceAnnotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   replicas: 1
   strategy: {type: Recreate}
   progressDeadlineSeconds: {{ add (int .Values.startup.timeoutSeconds) 1200 }}
   selector:
     matchLabels:
-      {{- include "sample.selector" . | nindent 6 }}
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        {{- include "sample.selector" . | nindent 8 }}
-        {{- if ne .Values.initdata.mode "configMap" }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- if or .Values.initdata.encoded (not .Values.initdata.configMapName) }}
         coco.io/skip-initdata: "true"
         {{- end }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
       annotations:
-        {{- include "sample.annotations" . | nindent 8 }}
-        checksum/scripts: {{ (.Files.Glob "scripts/*.sh").AsConfig | sha256sum | quote }}
+        io.katacontainers.config.hypervisor.default_memory: "2048"
+        io.katacontainers.config.runtime.create_container_timeout: {{ max 900 (add (int .Values.startup.timeoutSeconds) 30) | quote }}
+        {{- if .Values.initdata.encoded }}
+        io.katacontainers.config.hypervisor.cc_init_data: {{ .Values.initdata.encoded | quote }}
+        {{- else if .Values.initdata.configMapName }}
+        coco.io/initdata-configmap: {{ .Values.initdata.configMapName | quote }}
+        {{- end }}
     spec:
       runtimeClassName: {{ .Values.runtimeClassName | quote }}
-      serviceAccountName: {{ include "sample.account" . }}
+      serviceAccountName: {{ .Release.Name }}-sa
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
-      {{- if $encrypted }}
-      shareProcessNamespace: true
-      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if not $nfs }}
-      initContainers:
-        {{- if and $encrypted (eq .Values.keyDelivery.mode "curl") }}
-        - name: fetch-key
-          image: {{ .Values.images.utility | quote }}
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command: [sh, /opt/sample/fetch-key.sh]
-          securityContext: {runAsUser: 0, privileged: false, allowPrivilegeEscalation: false}
-          env:
-            - {name: KBS_RESOURCE_PATH, value: {{ .Values.keyDelivery.kbs.resourcePath | quote }}}
-          resources:
-            {{- toYaml .Values.resources.utility | nindent 12 }}
-          volumeMounts:
-            - {name: scripts, mountPath: /opt/sample, readOnly: true}
-            - {name: control, mountPath: /run/sample}
-        {{- end }}
-        - name: storage-helper
-          image: {{ .Values.images.storageHelper | quote }}
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          {{- if $encrypted }}
-          restartPolicy: Always
-          command: [sh, /opt/sample/encrypted-storage.sh]
-          {{- else }}
-          command: [sh, /opt/sample/format-storage.sh]
-          {{- end }}
-          securityContext: {runAsUser: 0, privileged: true}
-          env:
-            - {name: MAPPER_NAME, value: {{ printf "sample-%s" (include "sample.identity" .) | quote }}}
-            {{- if $encrypted }}
-            - {name: KEY_MODE, value: {{ .Values.keyDelivery.mode | quote }}}
-            - {name: KBS_RESOURCE_PATH, value: {{ .Values.keyDelivery.kbs.resourcePath | quote }}}
-            {{- if ne .Values.keyDelivery.mode "curl" }}
-            - name: PASS
-              valueFrom:
-                secretKeyRef:
-                  {{- if eq .Values.keyDelivery.mode "sealed" }}
-                  name: {{ default (printf "%s-envelope" (include "sample.name" .)) .Values.keyDelivery.sealed.existingSecret.name | quote }}
-                  key: {{ if .Values.keyDelivery.sealed.envelope }}envelope{{ else }}{{ .Values.keyDelivery.sealed.existingSecret.key | quote }}{{ end }}
-                  {{- else }}
-                  name: {{ .Values.keyDelivery.insecureSecret.name | quote }}
-                  key: {{ .Values.keyDelivery.insecureSecret.key | quote }}
-                  {{- end }}
-            {{- end }}
-            {{- end }}
-          resources:
-            {{- toYaml .Values.resources.storageHelper | nindent 12 }}
-          volumeDevices:
-            - {name: block, devicePath: /dev/block-device}
-          volumeMounts:
-            - {name: scripts, mountPath: /opt/sample, readOnly: true}
-            - {name: control, mountPath: /run/sample}
-      {{- end }}
       containers:
         - name: application
-          image: {{ .Values.images.application | quote }}
+          image: {{ .Values.images.storageHelper | quote }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           command: [sh, /opt/sample/main.sh]
-          # Lab-only: mounts/proc-root access are performed inside the Kata guest.
+          # Lab-only privileges: mount the external export inside the Kata guest.
           securityContext: {runAsUser: 0, privileged: true}
           env:
-            - {name: DATA_DIR, value: {{ .Values.storage.mountPath | quote }}}
-            - {name: SAMPLE_KIND, value: {{ if $encrypted }}encrypted{{ else if $nfs }}nfs{{ else }}plain{{ end }}}
-            - {name: STARTUP_TIMEOUT, value: {{ .Values.startup.timeoutSeconds | quote }}}
-            - {name: POLL_SECONDS, value: {{ .Values.startup.pollSeconds | quote }}}
-            - {name: FILE_NAME, value: {{ printf "sample-%s.txt" (include "sample.identity" .) | quote }}}
-            {{- if $nfs }}
-            - {name: EXPECTED_SOURCE, value: {{ include "sample.nfsSource" . | quote }}}
+            - {name: DATA_DIR, value: /mnt/storage}
+            - {name: EXPECTED_SOURCE, value: {{ printf "%s:%s" $server .Values.nfs.exportPath | quote }}}
             - {name: NFS_OPTIONS, value: {{ join "," .Values.nfs.options | quote }}}
-            {{- else }}
-            - {name: EXPECTED_SOURCE, value: /dev/block-device}
-            {{- end }}
+            - {name: STARTUP_TIMEOUT, value: {{ .Values.startup.timeoutSeconds | quote }}}
+            - {name: FILE_NAME, value: {{ printf "sample-%s-%s-%s.txt" .Chart.Name .Release.Name (.Release.Namespace | sha256sum | trunc 8) | quote }}}
           resources:
             {{- toYaml .Values.resources.application | nindent 12 }}
           startupProbe:
@@ -126,19 +67,11 @@ spec:
             exec: {command: [sh, /opt/sample/readiness.sh]}
             periodSeconds: 5
             timeoutSeconds: 5
-          {{- if and (not $encrypted) (not $nfs) }}
-          volumeDevices:
-            - {name: block, devicePath: /dev/block-device}
-          {{- end }}
           volumeMounts:
             - {name: scripts, mountPath: /opt/sample, readOnly: true}
             - {name: control, mountPath: /run/sample}
       volumes:
         - name: scripts
-          configMap: {name: {{ include "sample.name" . }}-scripts, defaultMode: 365}
+          configMap: {name: {{ .Release.Name }}-scripts, defaultMode: 365}
         - name: control
           emptyDir: {medium: Memory, sizeLimit: 16Mi}
-        {{- if not $nfs }}
-        - name: block
-          persistentVolumeClaim: {claimName: {{ include "sample.name" . }}-block}
-        {{- end }}
