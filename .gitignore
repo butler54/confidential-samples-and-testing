@@ -217,4 +217,21 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 # opencode has memory
-.opencode 
+.opencode
+
+# Local workload validation and sensitive operator inputs
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+*.secret.yaml
+secrets/
+.kube/
+kubeconfig*
+*.key
+*.crt
+*.private.json
+*-private.json
+*.tgz

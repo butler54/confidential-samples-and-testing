@@ -1,0 +1,4 @@
+# Render transport fixture only; not valid runtime initdata.
+initdata:
+  mode: inline
+  encoded: H4sIAAAAAAAA

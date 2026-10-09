@@ -1,0 +1,5 @@
+# Synthetic render-only mirror. No credentials or live repository are implied.
+images:
+  application: mirror.example:8443/storage-helper:1.13.1
+  storageHelper: mirror.example:8443/storage-helper:1.13.1
+  utility: mirror.example:8443/ubi:9.6

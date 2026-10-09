@@ -1,0 +1,52 @@
+# Lab default: pattern-managed debug policy in the release namespace.
+runtimeClassName: kata-cc
+initdata:
+  mode: configMap # configMap, inline, clusterDefault
+  configMapName: debug-initdata
+  encoded: "" # Gzipped/base64 initdata; never an encryption passphrase.
+podLabels: {}
+podAnnotations: {}
+resourceLabels: {}
+resourceAnnotations: {}
+images:
+  application: registry.redhat.io/openshift-sandboxed-containers/osc-storage-helper:1.13.1
+  storageHelper: registry.redhat.io/openshift-sandboxed-containers/osc-storage-helper:1.13.1
+  utility: registry.access.redhat.com/ubi9/ubi:9.6
+imagePullPolicy: IfNotPresent
+imagePullSecrets: [] # Existing pull-secret references; guest registry trust also needs initdata.
+storage:
+  mountPath: /mnt/storage
+  size: 1Gi
+  storageClass: null # Omitted: cluster default. Explicit class must support Block and Delete.
+startup:
+  timeoutSeconds: 900
+  pollSeconds: 2
+resources:
+  application:
+    requests: {cpu: 100m, memory: 2560Mi}
+    limits: {cpu: "1", memory: 2560Mi} # Includes 2048Mi guest + hypervisor overhead.
+  storageHelper:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 256Mi}
+  utility:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+serviceAccount:
+  create: true
+  name: "" # Existing account when create=false; do not use default.
+security:
+  sccBinding:
+    create: false # Explicit administrator opt-in; never grants namespace-wide access.
+    name: privileged # Existing SCC permitting in-guest mounting; lab-only scope.
+
+# Choose exactly one mode. Both attested modes use this one Trustee resource.
+keyDelivery:
+  mode: curl # curl, sealed, insecureSecret
+  kbs:
+    resourcePath: default/kbsres1/key3
+  sealed:
+    existingSecret: {name: "", key: envelope}
+    envelope: "" # Genuine signed CoCo token only; never plaintext. Prefer an existing Secret.
+  insecureSecret:
+    name: "" # Operator-supplied Secret; deliberately not chart-owned.
+    key: passphrase
