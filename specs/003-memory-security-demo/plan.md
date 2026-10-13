@@ -11,17 +11,17 @@ Fold the coco-baremetal memory-security test workflows into this repository as *
 1. **`memory-security`** — deploys an in-cluster magic-string endpoint (Red Hat httpd serving a ConfigMap file) behind one edge-TLS OpenShift Route that serves plaintext HTTP by design (the documented, confined demonstration target); three graduated-trust fetcher pods (ordinary runc, non-confidential `kata` VM, confidential `kata-cc`); and a dedicated **transport comparison pair** of two `kata-cc` pods (one HTTPS, one HTTP; HTTP confined to that pod only — an explicitly documented, chart-intended exception, not a toggle). A README walkthrough with copy-paste blocks drives host observations: host-filesystem read of the ordinary tier, `gcore` dumps of the two VM tiers' QEMU processes (string present in kata, absent in CoCo/TDX), and the HTTP-vs-HTTPS buffer observation at the router (haproxy process memory) and on the fetching pods' host node (plaintext packet buffering).
 2. **`kbs-client`** — a deliberately minimal, standalone chart deploying a single confidential client container for manually running the attestation key-broker client against the cluster's Trustee; independent of the memory demo.
 
-No automated behavioural tests: validation is the repository-standard static pipeline (`helm lint --strict`, `shellcheck`, `sh -n`, per-chart `tests/static.py` render assertions) wired into the existing CI matrix, plus the manual walkthrough documents. Tooling images (coredump helper, kbs-client) are built in `butler54/containers` per FR-011 and consumed pinned; this feature documents the dependency and performs no builds.
+No automated behavioural tests: validation is the repository-standard lint/shell pipeline (`helm lint --strict`, `shellcheck`, `sh -n`) wired into the existing CI matrix, plus the manual walkthrough documents. Tooling images (coredump helper, kbs-client) are built in `butler54/containers` per FR-011 and consumed pinned; this feature documents the dependency and performs no builds.
 
 ## Technical Context
 
-**Language/Version**: Helm 3 (chart apiVersion v2, Kubernetes `>=1.33.0-0`), POSIX shell scripts, Python 3.12 for static validation only
+**Language/Version**: Helm 3 (chart apiVersion v2, Kubernetes `>=1.33.0-0`), POSIX shell scripts
 
 **Primary Dependencies**: Helm, OpenShift Routes (edge termination), Kata runtime classes (`kata`, `kata-cc`) and coco-pattern initdata integration; Red Hat images (`ubi9/ubi`, `ubi9/httpd-24`); external tooling images from `butler54/containers` (coredump helper, kbs-client)
 
 **Storage**: N/A (emptyDir `Memory` volumes for the held magic string; no persistence)
 
-**Testing**: Static only — `helm lint --strict`, `shellcheck`, `sh -n`, per-chart `tests/static.py` render/rejection assertions (mirrors sibling examples); no live cluster tests
+**Testing**: Lint/shell checks only — `helm lint --strict`, `shellcheck`, `sh -n`; no live cluster tests
 
 **Target Platform**: Red Hat OpenShift ≥ 4.x on bare metal with Intel TDX, running the coco-pattern (Trustee KBS, runtime classes, initdata propagation); cluster-admin access for `oc debug node`
 
@@ -79,17 +79,14 @@ memory-security/                 # US1 + US2: tiers, endpoint, transport pair
 │   ├── configmap-magic-string.yaml    # served file content from values
 │   ├── pod-standard.yaml              # runc tier
 │   ├── pod-kata.yaml                  # non-confidential VM tier
-│   ├── pod-coco.yaml                  # confidential tier (initdata annotation)
-│   ├── pod-fetch-https.yaml           # transport pair, TLS fetcher
-│   ├── pod-fetch-http.yaml            # transport pair, plaintext fetcher (intended exception)
+│   ├── pods-kata-cc.yaml              # all confidential pods: coco tier + transport pair (TLS + plaintext fetcher)
 │   └── NOTES.txt
 ├── scripts/
 │   ├── get-pod-mac.sh           # pod → MAC lookup (arg: pod name + namespace)
 │   └── get-pod-uid.sh           # pod → UID lookup
 └── tests/
-    ├── requirements.txt         # pinned parser deps (same pins as siblings)
-    ├── run.sh                   # helm lint --strict w/ demo sets, shellcheck, sh -n
-    └── static.py                # render/rejection assertions (see contracts/values.md rules)
+    ├── requirements.txt         # pinned shellcheck dependency
+    └── run.sh                   # helm lint --strict w/ demo sets, shellcheck, sh -n
 
 kbs-client/                      # US3: independent minimal client chart
 ├── Chart.yaml                   # version 0.1.0
@@ -101,8 +98,7 @@ kbs-client/                      # US3: independent minimal client chart
 │   └── NOTES.txt
 └── tests/
     ├── requirements.txt
-    ├── run.sh
-    └── static.py
+    └── run.sh
 
 README.md                        # root index gains both examples + predecessor-successor note
 .github/workflows/validate-examples.yml   # matrix + paths extended to both new dirs
@@ -123,8 +119,8 @@ See [research.md](research.md). Headline decisions:
 
 ## Phase 1 — Design
 
-1. **Entities**: see [data-model.md](data-model.md) — release-scoped pods/tiers, endpoint (Deployment/Service/Route/ConfigMap), transport pair, values contract, initdata selection, helper scripts, static assertions.
-2. **Contracts**: see [contracts/values.md](contracts/values.md) (values surface, naming, route policy rules, static-check expectations) and [contracts/runtime-and-validation.md](contracts/runtime-and-validation.md) (what static validation proves vs. explicitly does not).
+1. **Entities**: see [data-model.md](data-model.md) — release-scoped pods/tiers, endpoint (Deployment/Service/Route/ConfigMap), transport pair, values contract, initdata selection, helper scripts.
+2. **Contracts**: see [contracts/values.md](contracts/values.md) (values surface, naming, route policy rules) and [contracts/runtime-and-validation.md](contracts/runtime-and-validation.md) (what lint/shell validation proves vs. explicitly does not).
 3. **Walkthroughs**: `memory-security/README.md` is the copy-paste walkthrough fulfilling FR-006..FR-008 (prereq checks → install → three-tier dumps → transport comparison at router+host node → expected outputs → cleanup); `kbs-client/README.md` is its brief independent doc; root `README.md` indexes both.
 4. **Validation**: [quickstart.md](quickstart.md) documents running the static pipeline for both charts; live steps remain manual per FR-009.
 

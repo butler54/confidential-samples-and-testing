@@ -27,7 +27,7 @@ jobs:
         env:
           CHART: ${{ matrix.chart }}
         run: python3 -m pip install -r "$CHART/tests/requirements.txt"
-      - name: Lint and statically validate standalone chart
+      - name: Lint and shellcheck standalone chart
         env:
           CHART: ${{ matrix.chart }}
         run: sh "$CHART/tests/run.sh"

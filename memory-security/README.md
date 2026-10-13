@@ -186,6 +186,6 @@ The release owns every rendered object; nothing external (initdata ConfigMaps, r
 
 ## Scope and validation
 
-Static validation (`memory-security/tests/run.sh`: Helm lint/render assertions, ShellCheck) proves chart shape only — it does not run pods, dumps, captures, or fetch anything, and no automated behavioural tests exist for this example. Observations above are the manual acceptance evidence.
+Static validation (`memory-security/tests/run.sh`: Helm lint, ShellCheck, syntax checks) proves chart shape only — it does not run pods, dumps, captures, or fetch anything, and no automated behavioural tests exist for this example. Observations above are the manual acceptance evidence.
 
 The predecessor `coco-baremetal` repository is retired by parity with this chart; remaining gap: none of its content is required to run these tests.

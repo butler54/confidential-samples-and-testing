@@ -10,13 +10,12 @@ What this feature's validation proves — and, explicitly, does not. Mirrors the
 
 ## Validation scope
 
-Static pipeline (per chart `tests/run.sh` → `helm lint --strict`, `shellcheck`, `sh -n`, `tests/static.py`; CI matrix on pinned Helm 3.22.0/ubuntu-24.04):
+Lint/shell pipeline (per chart `tests/run.sh` → `helm lint --strict`, `shellcheck`, `sh -n`; CI matrix on pinned Helm 3.22.0/ubuntu-24.04). Render-assertion checkers (`tests/static.py`) were planned and implemented during this feature, then removed repo-wide per PR #5 review; structural contract items (route policy, HTTP/string confinement, naming) are documented review contracts verified by manual render spot-checks per quickstart, not automated tests.
 
-**Proven statically**
+**Proven by the pipeline**
 
-1. Charts render or reject exactly per the values/render contract (route serving HTTPS + documented plaintext HTTP in every render, required `route.host`, initdata precedence).
-2. String confinement (ConfigMap only), HTTP confinement (exactly one pod, one command), route policy invariants (edge + Allow always, demonstration markers present), name uniqueness across a multi-release cohort, image pinning format.
-3. Shell syntax and static lint of every shipped script; README command blocks match the rendered resource names they reference (name-derived checks where feasible).
+1. Charts lint clean under `--strict` with representative demo values (schema-valid values, template resolution, required keys present).
+2. Shell syntax and lint of every shipped script (`shellcheck` + `sh -n`).
 
 **Explicitly NOT proven** (documented in both chart READMEs; remains the user's live observation)
 

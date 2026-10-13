@@ -7,4 +7,3 @@ command -v shellcheck >/dev/null
 helm lint "$chart" --strict --kube-version 1.33.0
 shellcheck -x "$chart/tests/run.sh"
 sh -n "$chart/tests/run.sh"
-python3 "$chart/tests/static.py"

@@ -21,8 +21,8 @@ Each main entrypoint waits for verified intended storage before creating/readbac
 
 These two examples supersede the retired `butler54/coco-baremetal` test workflows (their contents, plus an offline-capable endpoint and the HTTP/TLS comparison). Tooling images they reference (coredump helper, key-broker client) are built in `butler54/containers` and consumed pinned; nothing is built in this repository.
 
-Shared conventions: use distinct Helm release names to coexist; each directory includes its own chart, shell/values, guide and static checks. No runtime Python, custom image builds or shared chart framework.
+Shared conventions: use distinct Helm release names to coexist; each directory includes its own chart, shell/values, guide and lint/shell checks. No runtime Python, custom image builds or shared chart framework.
 
 **Testing only: delete and recreate releases for chart changes; upgrades are unsupported.** Pod replacement preserves the claim. Block release uninstall deletes owned claims/data through a compatible Delete provider; NFS export/data, external Secrets/initdata and Trustee infrastructure remain unowned and preserved.
 
-CI runs static lint/render/source/package checks only—not workloads, images or clusters. Static results do not prove runtime persistence, attestation, encryption or provider reclamation. See the [static validation guide](specs/002-simplify-storage-charts/quickstart.md). Existing untracked staging samples remain untouched; previous live tooling/specification evidence remains available in Git history and prior feature records.
+CI runs Helm lint and shell checks only—not workloads, images or clusters. Validation results do not prove runtime persistence, attestation, encryption or provider reclamation. See the [static validation guide](specs/002-simplify-storage-charts/quickstart.md). Existing untracked staging samples remain untouched; previous live tooling/specification evidence remains available in Git history and prior feature records.

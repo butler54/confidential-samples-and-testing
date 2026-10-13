@@ -7,4 +7,3 @@ command -v shellcheck >/dev/null
 helm lint "$chart" --strict --kube-version 1.33.0 --set route.host=static.apps.example.test
 shellcheck -x "$chart"/scripts/*.sh "$chart/tests/run.sh"
 for script in "$chart"/scripts/*.sh "$chart/tests/run.sh"; do sh -n "$script"; done
-python3 "$chart/tests/static.py"

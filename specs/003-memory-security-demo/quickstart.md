@@ -37,7 +37,7 @@ Expected shape (per contract — this is the complete demo; there is no opt-in f
 ## 3. What success looks like
 
 - `helm lint --strict` reports 0 failures per chart.
-- `static.py` prints its case summary (render/rejection assertions all pass).
+- `shellcheck` and `sh -n` pass on all shipped scripts.
 - CI matrix `static` goes green for all five charts in `.github/workflows/validate-examples.yml`.
 
 ## 4. What is deliberately not here

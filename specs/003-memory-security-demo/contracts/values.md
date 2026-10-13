@@ -1,6 +1,6 @@
 # Contract: Values, Naming, and Render Rules
 
-Consumer-facing surface of both charts. This contract is what the walkthroughs may assume and what `tests/static.py` enforces. Tooling images used only in walkthrough node-debug steps (coredump helper, network-tools) are documented inputs, not chart values.
+Consumer-facing surface of both charts. This contract is what the walkthroughs may assume; it is a documented review contract (no automated enforcement — render-assertion checkers were removed repo-wide per PR review). Tooling images used only in walkthrough node-debug steps (coredump helper, network-tools) are documented inputs, not chart values.
 
 ## memory-security values contract
 

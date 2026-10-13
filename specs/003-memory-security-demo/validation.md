@@ -2,37 +2,24 @@
 
 **Date**: 2026-10-13 · **Branch**: `004-memory-security-demo` · **Spec**: [spec.md](spec.md)
 
-Static-only validation, per contracts/runtime-and-validation.md. No cluster, registry, cluster-hosted endpoint, or Trustee was contacted; no workload shell or image was executed.
+Lint/shell and manual-render-spot-check validation, per contracts/runtime-and-validation.md. No cluster, registry, cluster-hosted endpoint, or Trustee was contacted; no workload shell or image was executed.
 
 ## Executed checks
 
 | Check | Result |
 |---|---|
-| `sh memory-security/tests/run.sh` (Helm 3.22.0 lint `--strict`, ShellCheck, `sh -n`, static.py) | PASS — "US1+US2 static checks passed across 7 Helm renders" |
-| `sh kbs-client/tests/run.sh` (same pipeline) | PASS — "static checks passed across 7 Helm renders" |
+| `sh memory-security/tests/run.sh` (Helm 3.22.0 lint `--strict`, ShellCheck, `sh -n`) | PASS — 0 failures |
+| `sh kbs-client/tests/run.sh` (same pipeline) | PASS — 0 failures |
+| `sh {block-storage-plain,block-storage-encrypted,nfs-direct}/tests/run.sh` (regression after repo-wide `static.py` removal) | PASS — 0 failures ×3 |
+| Manual render spot-check: `helm template` of memory-security with demo values | PASS — 5 pods rendered (`standard`, `kata`, `coco`, `fetch-https`, `fetch-http`), exactly one `http://` command (in `fetch-http`), plaintext markers present on Route and `fetch-http` pod |
 | Multi-release render (`alpha` + `beta` of memory-security) | PASS — 0 shared resource names across releases |
 
-## Static render/rejection case inventory
+## Post-review changes (PR #5 review)
 
-**memory-security** (7 counted renders + 1 raw template call):
+Per reviewer direction:
 
-1. Default render — endpoint Deployment/Service/Route/ConfigMap; tiers `standard|kata|coco`; pair `fetch-https|fetch-http`; runtime classes correct (`runc`/`kata`/`kata-cc`); hypervisor annotations on VM pods.
-2. `initdata.encoded=eA==` → hypervisor `init_data` annotation, no kyverno annotation.
-3. `initdata.configMapName=""` → no initdata annotation at all.
-4. `initdata.configMapName=custom-initdata` → kyverno annotation with custom name.
-5. Reject: missing `route.host`.
-6. Reject: `route.host=localhost` (not an FQDN).
-7. Reject: `route.host=Demo.apps.example.test` (uppercase).
-
-Plus in-default-render assertions (not separate renders): exactly one `http://` command (in `fetch-http`); TLS only for all other fetchers; route `edge` + `Allow` + `memory-security.dev/plaintext-http=demonstration-only`; magic-string content appears exactly once (ConfigMap only); DEMONSTRATION ONLY markers in route/fetch-http templates, README, NOTES; images pinned, no `:latest`, default-registry only; no personal-registry (`quay.io/rh-ee-…`) content; no `transport` values flag exists.
-
-**kbs-client** (7 counted renders):
-
-1. Default render — single Deployment `demo-client`, `kata-cc`, `debug-initdata`, `sleep infinity`, pinned image, no Service/Route/Secrets, no env when `kbs.address` empty.
-2–4. Initdata precedence renders (encoded / empty / custom configMapName).
-5. `kbs.address=https://kbs.example.org` → `KBS_ADDRESS` env present.
-6. Reject: `images.client=…:latest`.
-7. Reject: empty `runtimeClassName`.
+1. **Template deduplication** — the three confidential (kata-cc) pod templates (`pod-coco.yaml`, `pod-fetch-https.yaml`, `pod-fetch-http.yaml`) were merged into a single ranged template, `templates/pods-kata-cc.yaml`; rendered output verified identical in shape (pod names/labels, runtime class, initdata logic, transport schemes, markers).
+2. **`tests/static.py` removed repo-wide** — all five charts now validate with lint + shell checks only. `tests/requirements.txt` pins `shellcheck-py` only; the CI matrix is unchanged (5 charts), workflow step renamed accordingly. Structural contract items (route policy, HTTP/string confinement, naming) remain documented review contracts in contracts/values.md and are spot-checkable per quickstart.md.
 
 ## Tooling-image status (FR-011)
 
@@ -45,6 +32,4 @@ The coredump helper (`quay.io/butler54/coredump:0.1.0`) and kbs-client (`quay.io
 - Trustee reachability, attestation, retrieval, and kbs-client runtime behaviour.
 - Image existence of the placeholder tooling references until published.
 - TDX capability of any host.
-- `README.md` ↔ rendered-name consistency beyond the marker/notices statically asserted.
-
-Residual follow-ups noted for future validation work: cohort name-uniqueness is currently verified manually (two-release check above) rather than in static.py.
+- Full README ↔ rendered-name consistency beyond the manual render spot-checks above.

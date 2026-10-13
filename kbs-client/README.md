@@ -59,4 +59,4 @@ helm uninstall kbs --namespace "$NAMESPACE"
 
 ## Scope and validation
 
-Static validation (`kbs-client/tests/run.sh`: Helm lint/render assertions, ShellCheck) proves chart shape only. It does not contact Trustee, run the client, or pull images. The chart deploys independently of, and shares no state with, the `memory-security` example.
+Static validation (`kbs-client/tests/run.sh`: Helm lint, ShellCheck, syntax checks) proves chart shape only. It does not contact Trustee, run the client, or pull images. The chart deploys independently of, and shares no state with, the `memory-security` example.
