@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # Python runtime deps for the approved control-side tool are declared+pinned
+  # in io-benchmark/tools/pyproject.toml; each example's tests/requirements.txt
+  # pins its lint tooling (shellcheck-py, etc.).
+  - package-ecosystem: "pip"
+    directories:
+      - "/io-benchmark/tools"
+      - "/*/tests"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      pinned-tooling:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
