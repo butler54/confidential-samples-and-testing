@@ -1,8 +1,10 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 -> 1.1.0
-Modified principles: II. Helm-First Delivery -> II. Helm-First Delivery (debugging tooling
-exception)
+Version change: 1.1.0 -> 2.0.0
+Modified principles:
+  II. Helm-First Delivery -> II. Helm-First Delivery (scripts gated on explicit approval)
+  IV. External Image Builds -> IV. No Container Definitions (repo must not define containers;
+      external-image build mandate removed)
 Added sections: none
 Removed sections: none
 Follow-up TODOs: none
@@ -20,20 +22,28 @@ review, and removal of workloads.
 ### II. Helm-First Delivery
 Examples MUST use Helm when the workload can be expressed as a chart. Charts MUST expose
 environment-specific and operational configuration through comprehensive `values.yaml` files.
-When Helm is not suitable, examples MAY use raw Kubernetes manifests or shell scripts with a
-documented rationale. Debugging tooling MAY diverge from Helm and MUST use shell scripts where
-practical. Kustomize MUST NOT be used.
+When Helm is not suitable, examples MAY use raw Kubernetes manifests with a documented
+rationale. Kustomize MUST NOT be used. Executable scripts of any kind — Python, shell, or any
+other language — MUST NOT be created unless explicitly approved in advance for the change in
+which they appear ("explicit approval" means a recorded decision in the feature specification,
+implementation plan, or maintainer review, not merely the absence of objection). Approved
+scripts MUST use the simplest practical language, MUST be lint-validated in CI where a linter
+exists, and MUST carry a documented rationale for why the behavior cannot live in a Helm chart
+or manifests.
 
 ### III. Downstream-First Dependencies
 Examples MUST prefer Red Hat-supported container images, operators, charts, and OpenShift
-resources. Any non-Red Hat dependency MUST be explicitly justified in the example documentation,
-including why an equivalent downstream resource cannot satisfy the requirement. This keeps
-workloads aligned with supported OpenShift platforms.
+resources. Any non-Red Hat dependency MUST be explicitly justified in the example
+documentation, including why an equivalent downstream resource cannot satisfy the requirement.
+This keeps workloads aligned with supported OpenShift platforms.
 
-### IV. External Image Builds
-This repository MUST NOT build container images. Any additional image required by an example
-MUST be defined and built in `butler54/containers`, then consumed here by immutable image
-reference where practical. This separates workload examples from image supply-chain ownership.
+### IV. No Container Definitions
+This repository MUST NOT define containers: no Dockerfiles, Containerfiles, image build
+configuration, or build pipelines for images belong in this repository, and the repository MUST
+NOT prescribe where any required external image is defined or built. When a workload needs an
+image that Red Hat does not ship downstream, the example MUST reference an already-published
+image by immutable reference where practical and document its ownership and approval in the
+example README. The repository takes no supply-chain ownership of external images.
 
 ### V. CI/CD and Version Discipline
 Every change MUST pass repository linting and applicable validation in CI before merge. Examples,
@@ -60,9 +70,10 @@ repository-level CI/CD configuration and documentation.
 
 Contributors MUST validate Helm charts with `helm lint` when charts are present and run all
 repository-provided linting and validation commands relevant to changed files. Pull requests MUST
-identify the affected example, note any external image from `butler54/containers`, and explain
-any exception to Helm-first or downstream-first requirements. Reviews MUST reject changes that
-cannot be deployed or understood independently.
+identify the affected example, note any external image the change depends on (with its owning
+project), identify every executable script added and record its explicit approval reference, and
+explain any exception to Helm-first or downstream-first requirements. Reviews MUST reject
+changes that cannot be deployed or understood independently, and MUST reject unapproved scripts.
 
 ## Governance
 
@@ -77,4 +88,4 @@ or redefinition, MINOR for a new principle or materially expanded governance, an
 clarifications that do not change governance. The ratification date records initial adoption; the
 last-amended date changes whenever this document changes.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-09
+**Version**: 2.0.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-10-13
