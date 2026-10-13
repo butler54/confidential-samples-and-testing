@@ -1,0 +1,35 @@
+# Memory-security demonstration chart.
+#
+# SECURITY NOTE — READ BEFORE INSTALLING:
+#   The magic-string endpoint route intentionally serves plaintext HTTP on
+#   port 80 alongside HTTPS on 443, and exactly one designated pod fetches
+#   over HTTP. That plaintext exposure is the chart's demonstration target
+#   (the HTTP-vs-TLS memory-buffer comparison) and is confined to the single
+#   pod named <release>-fetch-http. HTTPS is the default transport for every
+#   other workload in this chart. DEMONSTRATION ONLY: do not reuse this
+#   chart as a template for production services.
+runtimeClassNames:
+  coco: kata-cc # Confidential runtime class (TDX memory encryption).
+  kata: kata # Ordinary sandboxed runtime class, no memory encryption.
+initdata:
+  configMapName: debug-initdata # Existing same-namespace ConfigMap; empty selects cluster default.
+  encoded: "" # Explicit compressed/base64 initdata wins over configMapName.
+images:
+  demo: registry.access.redhat.com/ubi9/ubi:9.6
+  magicServer: registry.access.redhat.com/ubi9/httpd-24:9.6
+imagePullPolicy: IfNotPresent
+imagePullSecrets: [] # Existing registry Secret references.
+magic:
+  string: MyMagicKeyIsABanana # Served at /magic.txt; keep it grep-distinctive and single-line.
+route:
+  host: "" # REQUIRED FQDN, typically <release>-<namespace>.<cluster appsDomain> (see README for a discovery command).
+guest:
+  vcpus: "2" # kata/kata-cc VM vCPU count (hypervisor annotation).
+  memory: "4096" # kata/kata-cc VM memory in MiB (hypervisor annotation).
+resources:
+  demo:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  endpoint:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}

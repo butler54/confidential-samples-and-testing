@@ -1,0 +1,7 @@
+apiVersion: v2
+name: kbs-client
+description: Minimal confidential key-broker client utility pod for manual attestation-gated retrievals
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.33.0-0"

@@ -1,0 +1,8 @@
+Key-broker client utility release "{{ .Release.Name }}" installed.
+
+Pod: {{ .Release.Name }}-client (confidential, {{ .Values.runtimeClassName }})
+
+Run the client inside it manually, e.g.:
+  oc exec -it deploy/{{ .Release.Name }}-client -- kbs-client --help
+
+See README.md for Trustee address discovery and a sample retrieval.

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: memory-security
+description: Graduated memory-visibility and HTTP/TLS buffer demonstrations for confidential containers
+type: application
+version: 0.1.0
+appVersion: "9.6"
+kubeVersion: ">=1.33.0-0"

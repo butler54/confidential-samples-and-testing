@@ -1,0 +1,21 @@
+# Dirt-simple attestation key-broker client utility.
+#
+# Deploys a single confidential container you can exec into and run the
+# key-broker client binary against the cluster's Trustee manually.
+# Independent of the memory-security chart.
+runtimeClassName: kata-cc # Confidential runtime class (TDX memory encryption).
+initdata:
+  configMapName: debug-initdata # Existing same-namespace ConfigMap; empty selects cluster default.
+  encoded: "" # Explicit compressed/base64 initdata wins over configMapName.
+images:
+  # Built in butler54/containers (FR-011) and consumed pinned; this is the
+  # placeholder reference until the first published build exists.
+  client: quay.io/butler54/kbs-client:0.1.0
+imagePullPolicy: IfNotPresent
+imagePullSecrets: [] # Existing registry Secret references.
+kbs:
+  address: "" # Trustee base URL override, e.g. https://kbs.example.org; README shows discovering it.
+resources:
+  client:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}

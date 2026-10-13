@@ -1,6 +1,8 @@
-# Confidential storage examples
+# Confidential samples and testing
 
-Three independent, readable Helm demonstrations for Red Hat confidential containers on bare-metal OpenShift:
+Independent, readable Helm demonstrations for Red Hat confidential containers on bare-metal OpenShift.
+
+## Storage examples
 
 | Example | Storage flow |
 |---|---|
@@ -8,9 +10,18 @@ Three independent, readable Helm demonstrations for Red Hat confidential contain
 | [block-storage-encrypted](block-storage-encrypted/README.md) | Prepare/unlock LUKS/XFS in the guest with attested curl, genuine CoCo sealed-token or explicitly insecure existing-Secret key delivery. |
 | [nfs-direct](nfs-direct/README.md) | Mount an existing NFS export directly inside the application, without PV/PVC. |
 
-Each main entrypoint waits for verified intended storage before creating/readback-verifying a public prose file or verifying matching existing prose. Deployments preserve storage access across pod replacement. Use distinct Helm release names to coexist; each directory includes its own chart, shell, values, guide and static checks. No runtime Python, custom image builds or shared chart framework.
+Each main entrypoint waits for verified intended storage before creating/readback-verifying a public prose file or verifying matching existing prose. Deployments preserve storage access across pod replacement. Defaults select `kata-cc`, same-namespace coco-pattern `debug-initdata` and Red Hat images. Essential initdata/image/class/key/NFS overrides are documented locally; disconnected operation uses full image-reference overrides without startup package downloads. Guest policy must allow required mount/access and read-only exec probes; charts never silently relax it. Sealed mode additionally assumes externally corrected signing trust and uses the same single configured Trustee encryption resource.
 
-Defaults select `kata-cc`, same-namespace coco-pattern `debug-initdata` and Red Hat images. Essential initdata/image/class/key/NFS overrides are documented locally; disconnected operation uses full image-reference overrides without startup package downloads. Guest policy must allow required mount/access and read-only exec probes; charts never silently relax it. Sealed mode additionally assumes externally corrected signing trust and uses the same single configured Trustee encryption resource.
+## Observability and utility examples
+
+| Example | Demonstration |
+|---|---|
+| [memory-security](memory-security/README.md) | Graduate host memory visibility across ordinary, sandboxed and confidential tiers, and show that HTTP (unlike HTTPS) leaves data in host memory buffers. Serves its magic string from a cluster-hosted endpoint over an HTTPS+HTTP route — no GitHub reach required. **DEMONSTRATION ONLY: the endpoint intentionally exposes plaintext HTTP, confined to one designated fetch pod.** |
+| [kbs-client](kbs-client/README.md) | Minimal confidential key-broker client pod for manual, attestation-gated retrievals from the cluster Trustee; independent of the other examples. |
+
+These two examples supersede the retired `butler54/coco-baremetal` test workflows (their contents, plus an offline-capable endpoint and the HTTP/TLS comparison). Tooling images they reference (coredump helper, key-broker client) are built in `butler54/containers` and consumed pinned; nothing is built in this repository.
+
+Shared conventions: use distinct Helm release names to coexist; each directory includes its own chart, shell/values, guide and static checks. No runtime Python, custom image builds or shared chart framework.
 
 **Testing only: delete and recreate releases for chart changes; upgrades are unsupported.** Pod replacement preserves the claim. Block release uninstall deletes owned claims/data through a compatible Delete provider; NFS export/data, external Secrets/initdata and Trustee infrastructure remain unowned and preserved.
 
