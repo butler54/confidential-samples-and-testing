@@ -1,0 +1,113 @@
+{{- /*
+Benchmark pod. One case = one pod, run serially by tools/bench.py (FR-004).
+Main container idles; bench.py drives per-repeat fio via bounded `oc exec`
+(research R2) so each repeat is independently timed and failures isolate.
+
+Privilege note (FR-010): the pod runs privileged because XFS formatting, LUKS
+format/unlock, and mounting a raw block device inside the pod require the host
+device view + CAP_SYS_ADMIN. This is the documented SCC escalation; a dedicated
+benchmark namespace with the `privileged` SCC bound to the benchmark SA is the
+documented operator step in io-benchmark/README.md.
+*/ -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ printf "io-bench-%s-%s" (default "io-bench" .Values.runTag | trunc 20) .Values.case.slug }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: io-benchmark
+    io-benchmark/run-tag: {{ .Values.runTag | quote }}
+    io-benchmark/case: {{ .Values.case.slug | quote }}
+  annotations:
+  {{- if .Values.case.runtimeClassName }}
+    {{- if .Values.initdata.encoded }}
+    io.katacontainers.config.hypervisor.init_data: {{ .Values.initdata.encoded | quote }}
+    {{- else if .Values.initdata.configMapName }}
+    coco.io/initdata-configmap: {{ .Values.initdata.configMapName | quote }}
+    {{- else if eq .Values.initdata.mode "debug" }}
+    coco.io/skip-initdata: "true"
+    {{- end }}
+  {{- end }}
+spec:
+  nodeName: {{ .Values.node.name | quote }}
+  restartPolicy: Never
+  {{- if .Values.case.runtimeClassName }}
+  runtimeClassName: {{ .Values.case.runtimeClassName | quote }}
+  {{- end }}
+  {{- if .Values.imagePullSecrets }}
+  imagePullSecrets:
+{{ .Values.imagePullSecrets | toYaml | indent 4 }}
+  {{- end }}
+  {{- if .Values.case.encrypted }}
+  initContainers:
+    - name: luks-prep
+      image: {{ .Values.images.workload | quote }}
+      imagePullPolicy: IfNotPresent
+      # Demo-grade static key only (spec Assumption / research R6). Never a
+      # production secret; the whole feature is a measurement harness.
+      env:
+        - name: DEMO_LUKS_KEY
+          value: {{ .Values.demoLuksKey | quote }}
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          set -eu
+          DEV=/dev/xvda
+          MAPPER=iobench
+          if ! blkid -p "$DEV" | grep -q crypto_LUKS; then
+            printf '%s' "$DEMO_LUKS_KEY" | cryptsetup luksFormat --type luks2 --batch-mode "$DEV"
+          fi
+          printf '%s' "$DEMO_LUKS_KEY" | cryptsetup open --key-file - "$DEV" "$MAPPER"
+          if ! blkid -p "/dev/mapper/$MAPPER" >/dev/null 2>&1; then
+            mkfs.xfs -f "/dev/mapper/$MAPPER"
+          fi
+          # Mapper stays open; on the host it is pod-shared and the main
+          # container mounts it via the /dev/mapper path.
+      securityContext:
+        privileged: true
+      volumeDevices:
+        - name: benchvol
+          devicePath: /dev/xvda
+  {{- end }}
+  containers:
+    - name: benchmark
+      image: {{ .Values.images.workload | quote }}
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          set -eu
+          DEV={{ if .Values.case.encrypted }}/dev/mapper/iobench{{ else }}/dev/xvda{{ end }}
+          mkdir -p /benchdata
+          {{- if not .Values.case.encrypted }}
+          if ! blkid -p "$DEV" >/dev/null 2>&1; then
+            mkfs.xfs -f "$DEV"
+          fi
+          {{- end }}
+          mount -t xfs "$DEV" /benchdata
+          echo "PREPARED $DEV" > /benchdata/.prepared
+          exec sleep infinity
+      # Documented escalation (FR-010): mkfs/mount/LUKS need device + CAP_SYS_ADMIN.
+      securityContext:
+        privileged: true
+      resources:
+        requests:
+          cpu: {{ .Values.pod.cpu | quote }}
+          memory: {{ .Values.pod.mem | quote }}
+        limits:
+          cpu: {{ .Values.pod.cpu | quote }}
+          memory: {{ .Values.pod.mem | quote }}
+      volumeDevices:
+        - name: benchvol
+          devicePath: /dev/xvda
+      volumeMounts:
+        - name: fiojob
+          mountPath: /etc/fio
+  volumes:
+    - name: benchvol
+      persistentVolumeClaim:
+        claimName: {{ printf "io-bench-%s-%s" (default "io-bench" .Values.runTag | trunc 20) .Values.case.slug }}
+    - name: fiojob
+      configMap:
+        name: {{ printf "io-bench-%s-%s-fio" (default "io-bench" .Values.runTag | trunc 20) .Values.case.slug }}
+      # fio job file path inside the pod: /etc/fio/fio.job

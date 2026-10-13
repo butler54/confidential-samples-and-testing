@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "io-benchmark chart values",
+  "type": "object",
+  "required": ["case", "node", "pvc", "images"],
+  "properties": {
+    "case": {
+      "type": "object",
+      "required": ["slug"],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "enum": ["plain", "plain-luks", "kata", "kata-luks", "coco", "coco-luks"]
+        },
+        "runtimeClassName": {
+          "type": "string",
+          "enum": ["", "kata", "kata-cc"]
+        },
+        "encrypted": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "pvc": {
+      "type": "object",
+      "required": ["storageClass", "size"],
+      "properties": {
+        "storageClass": { "type": "string", "minLength": 1 },
+        "size": { "type": "string", "pattern": "^[0-9]+(Gi|G|Ti|T|Mi)$" }
+      },
+      "additionalProperties": false
+    },
+    "pod": {
+      "type": "object",
+      "properties": {
+        "cpu": { "type": "string", "minLength": 1 },
+        "mem": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ki)$" }
+      },
+      "additionalProperties": false
+    },
+    "images": {
+      "type": "object",
+      "required": ["workload"],
+      "properties": {
+        "workload": {
+          "type": "string",
+          "pattern": "^[^:@]+:[^:@]+$",
+          "not": { "pattern": ":latest$" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "namespace": { "type": "string", "minLength": 1 },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "name": { "type": "string", "minLength": 1 } },
+        "additionalProperties": false
+      }
+    },
+    "runTag": { "type": "string" },
+    "fio": {
+      "type": "object",
+      "properties": {
+        "workingSetSize": { "type": "string", "pattern": "^[0-9]+(Gi|G|Ti|T|Mi)$" }
+      },
+      "additionalProperties": false
+    },
+    "initdata": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["debug", "cluster-default"] },
+        "encoded": { "type": "string" },
+        "configMapName": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "demoLuksKey": { "type": "string", "minLength": 8 },
+    "fioJobInline": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

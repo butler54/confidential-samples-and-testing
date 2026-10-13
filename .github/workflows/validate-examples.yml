@@ -1,9 +1,9 @@
 name: Validate examples
 on:
   push:
-    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', 'memory-security/**', 'kbs-client/**', '.github/workflows/validate-examples.yml']
+    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', 'memory-security/**', 'kbs-client/**', 'io-benchmark/**', '.github/workflows/validate-examples.yml']
   pull_request:
-    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', 'memory-security/**', 'kbs-client/**', '.github/workflows/validate-examples.yml']
+    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', 'memory-security/**', 'kbs-client/**', 'io-benchmark/**', '.github/workflows/validate-examples.yml']
 permissions:
   contents: read
 jobs:
@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chart: [block-storage-plain, block-storage-encrypted, nfs-direct, memory-security, kbs-client]
+        chart: [block-storage-plain, block-storage-encrypted, nfs-direct, memory-security, kbs-client, io-benchmark]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:

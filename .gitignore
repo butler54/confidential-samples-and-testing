@@ -235,3 +235,7 @@ kubeconfig*
 *.private.json
 *-private.json
 *.tgz
+
+# io-benchmark runtime output (FR-008: run folders + local Iceberg store)
+results/
+io-benchmark/results/

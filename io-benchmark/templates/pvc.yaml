@@ -1,0 +1,21 @@
+{{- /*
+One raw-block volume claim per benchmark case (FR-003, volumeMode: Block).
+The benchmark pod consumes this PVC as a volumeDevice so fio runs directly on
+the provisioned block device (FR-007) underneath the XFS/LUKS+XFS treatment.
+*/ -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ printf "io-bench-%s-%s" (default .Release.Name .Values.runTag | trunc 20) .Values.case.slug }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: io-benchmark
+    io-benchmark/run-tag: {{ .Values.runTag | quote }}
+    io-benchmark/case: {{ .Values.case.slug | quote }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  volumeMode: Block
+  storageClassName: {{ .Values.pvc.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.pvc.size | quote }}

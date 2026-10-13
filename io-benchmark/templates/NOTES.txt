@@ -1,0 +1,9 @@
+io-benchmark case pod rendered: {{ .Values.case.slug }}
+  runtimeClassName: {{ .Values.case.runtimeClassName | default "(none: plain pod)" }}
+  encrypted volume: {{ .Values.case.encrypted }}
+  node: {{ .Values.node.name }}
+  PVC:  {{ printf "io-bench-%s-%s" (default "io-bench" .Values.runTag | trunc 20) .Values.case.slug }} (volumeMode: Block, {{ .Values.pvc.size }} on {{ .Values.pvc.storageClass }})
+  fio job: ConfigMap {{ printf "io-bench-%s-%s-fio" (default "io-bench" .Values.runTag | trunc 20) .Values.case.slug }} mounted at /etc/fio/fio.job
+
+tools/bench.py applies, waits, measures, and deletes this manifest per case.
+Delete manually only if interrupted: oc delete -f <run folder>/manifest-{{ .Values.case.slug }}.yaml
