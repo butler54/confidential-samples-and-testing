@@ -1,0 +1,23 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Release.Name }}-magic
+  labels:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: memory-security-demo
+  annotations:
+    # DEMONSTRATION ONLY: the route intentionally answers plaintext HTTP on
+    # port 80 as this chart's HTTP-vs-TLS memory comparison target.
+    memory-security.dev/plaintext-http: demonstration-only
+spec:
+  host: {{ .Values.route.host }}
+  to:
+    kind: Service
+    name: {{ .Release.Name }}-magic
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    # Plaintext HTTP on port 80 is intentionally served by this chart as its
+    # DEMONSTRATION ONLY transport-comparison target (see README).
+    insecureEdgeTerminationPolicy: Allow

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-client
+  labels:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: kbs-client
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: client
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: client
+      annotations:
+        io.katacontainers.config.hypervisor.default_vcpus: "2"
+        io.katacontainers.config.hypervisor.default_memory: "4096"
+{{- if .Values.initdata.encoded }}
+        io.katacontainers.config.hypervisor.init_data: {{ .Values.initdata.encoded | quote }}
+{{- else if .Values.initdata.configMapName }}
+        coco.io/initdata-configmap: {{ .Values.initdata.configMapName }}
+{{- end }}
+    spec:
+      runtimeClassName: {{ .Values.runtimeClassName }}
+{{- if .Values.imagePullSecrets }}
+      imagePullSecrets: {{ .Values.imagePullSecrets | toYaml | nindent 8 }}
+{{- end }}
+      containers:
+      - name: client
+        image: {{ .Values.images.client }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
+        - sleep
+        - infinity
+{{- if .Values.kbs.address }}
+        env:
+        - name: KBS_ADDRESS
+          value: {{ .Values.kbs.address | quote }}
+{{- end }}
+        resources: {{ .Values.resources.client | toYaml | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: ["ALL"]

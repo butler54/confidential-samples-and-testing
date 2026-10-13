@@ -1,0 +1,82 @@
+# All confidential (kata-cc) pods share one pod shape and are rendered
+# together: the coco graduated-trust tier, the pair's TLS fetcher, and the
+# pair's plaintext fetcher (this chart's single documented HTTP exception).
+{{- $pods := list
+  (dict "name" "coco" "pair" false "plain" false)
+  (dict "name" "fetch-https" "pair" true "plain" false)
+  (dict "name" "fetch-http" "pair" true "plain" true)
+-}}
+{{- range $pods }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ $.Release.Name }}-{{ .name }}
+  labels:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: memory-security-demo
+    {{- if .pair }}
+    demo.pair: transport
+    {{- else }}
+    demo.tier: coco
+    {{- end }}
+  annotations:
+    io.katacontainers.config.hypervisor.default_vcpus: {{ $.Values.guest.vcpus | quote }}
+    io.katacontainers.config.hypervisor.default_memory: {{ $.Values.guest.memory | quote }}
+    {{- if .plain }}
+    # DEMONSTRATION ONLY: the single intended plaintext-HTTP client in this
+    # chart, for the HTTP-vs-TLS memory-buffer comparison. Never copy this
+    # pattern into a production workload.
+    memory-security.dev/plaintext-http: demonstration-only
+    {{- end }}
+    {{- if $.Values.initdata.encoded }}
+    io.katacontainers.config.hypervisor.init_data: {{ $.Values.initdata.encoded | quote }}
+    {{- else if $.Values.initdata.configMapName }}
+    coco.io/initdata-configmap: {{ $.Values.initdata.configMapName }}
+    {{- end }}
+spec:
+  runtimeClassName: {{ $.Values.runtimeClassNames.coco }}
+{{- if $.Values.imagePullSecrets }}
+  imagePullSecrets: {{ $.Values.imagePullSecrets | toYaml | nindent 4 }}
+{{- end }}
+  initContainers:
+  - name: fetch-key
+    image: {{ $.Values.images.demo }}
+    imagePullPolicy: {{ $.Values.imagePullPolicy }}
+    {{- if .plain }}
+    # DEMONSTRATION ONLY: plaintext HTTP fetch of the transport pair.
+    command:
+    - sh
+    - -c
+    - curl -s http://{{ $.Values.route.host }}/magic.txt -o /keys/magickey.txt
+    {{- else }}
+    # TLS fetch. -k skips server verification only; the traffic is still
+    # encrypted (that is the observation being made).
+    command:
+    - sh
+    - -c
+    - curl -ks https://{{ $.Values.route.host }}/magic.txt -o /keys/magickey.txt
+    {{- end }}
+    volumeMounts:
+    - name: keys
+      mountPath: /keys
+  containers:
+  - name: demo
+    image: {{ $.Values.images.demo }}
+    imagePullPolicy: {{ $.Values.imagePullPolicy }}
+    command:
+    - sleep
+    - infinity
+    resources: {{ $.Values.resources.demo | toYaml | nindent 6 }}
+    securityContext:
+      privileged: false
+      seccompProfile:
+        type: RuntimeDefault
+    volumeMounts:
+    - name: keys
+      mountPath: /keys
+  volumes:
+  - name: keys
+    emptyDir:
+      medium: Memory
+{{- end }}

@@ -1,0 +1,18 @@
+Memory-security demonstration release "{{ .Release.Name }}" installed.
+
+Cluster-hosted endpoint (no external dependencies):
+  https://{{ .Values.route.host }}/magic.txt   (TLS)
+  http://{{ .Values.route.host }}/magic.txt    (DEMONSTRATION ONLY: plaintext
+  HTTP is intentionally exposed by this chart for the transport comparison;
+  HTTPS is the default everywhere — see the README warning)
+
+Demo pods holding the fetched magic string (graduated trust):
+  {{ .Release.Name }}-standard   ordinary container (host-readable emptyDir)
+  {{ .Release.Name }}-kata       sandboxed VM, no memory encryption
+  {{ .Release.Name }}-coco       confidential VM, memory encrypted (TDX)
+
+Transport comparison pair:
+  {{ .Release.Name }}-fetch-https  fetches over TLS
+  {{ .Release.Name }}-fetch-http   fetches over plaintext HTTP (documented exception)
+
+Next: follow the README.md walkthrough (host observations, transport comparison, cleanup).

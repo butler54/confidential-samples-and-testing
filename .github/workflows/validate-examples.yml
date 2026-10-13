@@ -1,9 +1,9 @@
-name: Validate storage examples
+name: Validate examples
 on:
   push:
-    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', '.github/workflows/validate-examples.yml']
+    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', 'memory-security/**', 'kbs-client/**', '.github/workflows/validate-examples.yml']
   pull_request:
-    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', '.github/workflows/validate-examples.yml']
+    paths: ['block-storage-plain/**', 'block-storage-encrypted/**', 'nfs-direct/**', 'memory-security/**', 'kbs-client/**', '.github/workflows/validate-examples.yml']
 permissions:
   contents: read
 jobs:
@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chart: [block-storage-plain, block-storage-encrypted, nfs-direct]
+        chart: [block-storage-plain, block-storage-encrypted, nfs-direct, memory-security, kbs-client]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -27,7 +27,7 @@ jobs:
         env:
           CHART: ${{ matrix.chart }}
         run: python3 -m pip install -r "$CHART/tests/requirements.txt"
-      - name: Lint and statically validate standalone chart
+      - name: Lint and shellcheck standalone chart
         env:
           CHART: ${{ matrix.chart }}
         run: sh "$CHART/tests/run.sh"
