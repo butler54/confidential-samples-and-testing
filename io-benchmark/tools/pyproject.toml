@@ -17,7 +17,7 @@ description = "Serial cache-defeating IO benchmark harness control tool (feature
 requires-python = ">=3.12"
 dependencies = [
     "pyiceberg[sql-sqlite]==0.9.1",
-    "pyarrow==19.0.1",
+    "pyarrow==23.0.1",
     "typer==0.16.0",
 ]
 
