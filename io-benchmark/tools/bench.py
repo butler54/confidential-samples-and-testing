@@ -9,30 +9,39 @@ parsing -> Markdown summary + Apache Iceberg appends.
 Runs ONLY on the operator's control machine; nothing here executes in-cluster.
 See specs/004-benchmark-harness/contracts/operator-surface.md for the CLI and
 "io-benchmark/docs/benchmark-selection.md" for why fio owns every benchmark.
+
+Dependencies are declared and pinned in ../pyproject.toml (imported statically;
+a missing dependency fails at import time, not mid-run).
 """
 from __future__ import annotations
 
-import argparse
+import dataclasses
 import datetime as dt
 import json
-import os
+import random
 import re
-import shlex
 import shutil
 import signal
 import statistics
 import subprocess
 import sys
+import time
 from pathlib import Path
+from typing import Annotated
 
-VERSION = "0.1.0"
+import pyarrow as pa
+import typer
+from pyiceberg import catalog, exceptions, schema, types
+
+VERSION = "0.2.0"
 CASE_ORDER = ["plain", "plain-luks", "kata", "kata-luks", "coco", "coco-luks"]
 CASE_RUNTIME = {"plain": "", "plain-luks": "", "kata": "kata", "kata-luks": "kata",
                 "coco": "kata-cc", "coco-luks": "kata-cc"}
 CASE_ENCRYPTED = {"plain": False, "plain-luks": True, "kata": False,
                   "kata-luks": True, "coco": False, "coco-luks": True}
 EXIT_OK, EXIT_PREFLIGHT, EXIT_CASE_FAILED, EXIT_USAGE, EXIT_CLEANUP_FAILED = 0, 1, 2, 3, 4
-CHART_DIR = Path(__file__).resolve().parent.parent
+CHART_DIR = (lambda p: p if (p / "values.yaml").exists() else Path.cwd() / "io-benchmark")(
+    Path(__file__).resolve().parent.parent)
 RESULT_SIZE_MARGIN = 1.1  # FR-005 sizing rule multiplier
 
 # ---------------------------------------------------------------- utilities
@@ -87,35 +96,32 @@ def fmt_path(p: Path) -> str:
     return str(p)
 
 
-# ------------------------------------------------------------- CLI parsing
+# ------------------------------------------------------- run configuration
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="bench.py", description=__doc__.splitlines()[0])
-    p.add_argument("--run-tag", default="")
-    p.add_argument("--node")
-    p.add_argument("--storage-class", dest="sc")
-    p.add_argument("--namespace", default="default")
-    p.add_argument("--cases", default=",".join(CASE_ORDER))
-    p.add_argument("--pod-cpu", default="2")
-    p.add_argument("--pod-mem", default="4096Mi")
-    p.add_argument("--volume-size", default="512Gi")
-    p.add_argument("--repeats", type=int, default=3)
-    p.add_argument("--fio-jobfile", default="")
-    p.add_argument("--workload-image", default="quay.io/rh-ee-chbutler/perf-utils:v0.1.0")
-    p.add_argument("--results-root", default="./results")
-    p.add_argument("--assume-cache-suspect", action="store_true")
-    p.add_argument("--initdata", choices=["debug", "cluster-default"], default="debug")
-    p.add_argument("--image-pull-secret", default="")
-    p.add_argument("--cleanup-only", metavar="RUN_TAG", default="")
-    p.add_argument("--coco-validate", choices=["proxy", "strong"], default="proxy")
-    p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--yes", action="store_true")
-    a = p.parse_args(argv)
-    if a.cleanup_only:
-        return a
-    if not a.node or not a.sc:
-        p.error("--node and --storage-class are required (or use --cleanup-only RUN_TAG)")
-    return a
+@dataclasses.dataclass
+class Config:
+    """Resolved operator inputs (was an argparse.Namespace; now populated by
+    the Typer entrypoint at the bottom of this module)."""
+    run_tag: str = ""
+    node: str = ""
+    sc: str = ""
+    namespace: str = "default"
+    cases: str = ",".join(CASE_ORDER)
+    pod_cpu: str = "2"
+    pod_mem: str = "4096Mi"
+    volume_size: str = "512Gi"
+    repeats: int = 3
+    fio_jobfile: str = ""
+    workload_image: str = "quay.io/rh-ee-chbutler/perf-utils:v0.1.0"
+    results_root: str = "./results"
+    assume_cache_suspect: bool = False
+    initdata: str = "debug"
+    image_pull_secret: str = ""
+    cleanup_only: str = ""
+    coco_validate: str = "proxy"
+    dry_run: bool = False
+    yes: bool = False
+    job_sections_file: str = ""  # populated by main() before case execution
 
 
 # ----------------------------------------------------------------- logging
@@ -143,7 +149,7 @@ class OC:
 
 # -------------------------------------------------------------- preflight
 
-def preflight(a: argparse.Namespace, oc: OC, cases: list[str]) -> tuple[bool, float, float, list[str]]:
+def preflight(a: Config, oc: OC, cases: list[str]) -> tuple[bool, float, float, list[str]]:
     """Returns (fatal, node_mem_gib, suspect, tenant_warns). Emits fixed-format PREFLIGHT lines."""
     fatal = False
     tenant_warns: list[str] = []
@@ -154,13 +160,8 @@ def preflight(a: argparse.Namespace, oc: OC, cases: list[str]) -> tuple[bool, fl
     if shutil.which("helm") is None:
         say("FAIL", "tooling", "helm not on PATH")
         return True, 0.0, False, tenant_warns
-    try:
-        import pyiceberg  # noqa: F401
-        say("OK", "tooling", "pyiceberg importable")
-    except ImportError:
-        say("FAIL", "tooling", "pyiceberg/pyarrow missing: pip install -r io-benchmark/requirements.txt")
-        fatal = True
-    say("OK", "tooling", "oc + helm present")
+    say("OK", "tooling", "oc + helm present; Python deps imported statically "
+        "(declared+pinned in tools/pyproject.toml)")
 
     cp = oc.oc("cluster-info", timeout=30)
     if cp.returncode == 0:
@@ -251,7 +252,7 @@ def preflight(a: argparse.Namespace, oc: OC, cases: list[str]) -> tuple[bool, fl
     return fatal, mem_gib, suspect, tenant_warns
 
 
-def probe_block_pvc(a: argparse.Namespace, oc: OC) -> bool:
+def probe_block_pvc(a: Config, oc: OC) -> bool:
     name = f"io-bench-probe-{a.run_tag}".lower()
     pvc = {
         "apiVersion": "v1", "kind": "PersistentVolumeClaim",
@@ -279,7 +280,7 @@ def probe_block_pvc(a: argparse.Namespace, oc: OC) -> bool:
 
 # ------------------------------------------------------------ helm/render
 
-def case_set_flags(a: argparse.Namespace, slug: str, working_set: str) -> list[str]:
+def case_set_flags(a: Config, slug: str, working_set: str) -> list[str]:
     rt, enc = CASE_RUNTIME[slug], CASE_ENCRYPTED[slug]
     flags = ["--set", f"case.slug={slug}",
              "--set", f"case.runtimeClassName={rt}",
@@ -300,21 +301,19 @@ def case_set_flags(a: argparse.Namespace, slug: str, working_set: str) -> list[s
     return flags
 
 
-def resource_name(a: argparse.Namespace, slug: str) -> str:
+def resource_name(a: Config, slug: str) -> str:
     return f"io-bench-{a.run_tag[:20]}-{slug}"
 
 
 # --------------------------------------------------------------- iceberg
 
 def iceberg_open(warehouse: Path):
-    from pyiceberg import catalog
-    from pyiceberg import exceptions
     warehouse.mkdir(parents=True, exist_ok=True)
     cat = catalog.load_catalog("runs", **{
         "type": "sql",
-        # busy_timeout absorbs short concurrent-writer contention;
-        # retry layer in iceberg_append backs that up.
-        "uri": f"sqlite:///{warehouse / 'catalog.db'}?busy_timeout=5000",
+        # SQLite URI params only apply with uri=true; busy_timeout absorbs
+        # short concurrent-writer contention, iceberg_append retry backs it up.
+        "uri": f"sqlite:///file:{warehouse / 'catalog.db'}?uri=true&busy_timeout=5000",
         "warehouse": f"file://{warehouse}",
     })
     try:
@@ -366,8 +365,6 @@ IBG_FIELDS = {    "metadata": [
 
 
 def iceberg_table(cat, name: str):
-    from pyiceberg import schema, types
-    from pyiceberg import exceptions
     full = f"runs.{name}"
     iceberg_types = {
         "string": types.StringType(), "long": types.LongType(),
@@ -390,8 +387,6 @@ def iceberg_append(cat, name: str, rows: list[dict], attempts: int = 5) -> None:
     failing the case. Idempotent by caller-supplied row identity."""
     if not rows:
         return
-    import random
-    import time
     tbl = iceberg_table(cat, name)
     arrow = rows_to_arrow(rows, name)
     last_exc: Exception | None = None
@@ -405,20 +400,25 @@ def iceberg_append(cat, name: str, rows: list[dict], attempts: int = 5) -> None:
     raise RuntimeError(f"iceberg append to runs.{name} failed after {attempts} attempts: {last_exc}")
 
 
+PA_TYPES = {"string": pa.string(), "long": pa.int64(), "double": pa.float64(),
+            "boolean": pa.bool_(), "timestamptz": pa.timestamp("us", tz="UTC")}
+
+
 def rows_to_arrow(rows: list[dict], name: str):
-    import pyarrow as pa
-    from pyiceberg.types import TimestamptzType  # noqa: F401  (documents tz policy)
-    colnames = [f for f, _ in IBG_FIELDS[name]]
-    cols = {}
+    sch = pa.schema([(f, PA_TYPES[t]) for f, t in IBG_FIELDS[name]])
+    data = {f: [r.get(f) for r in rows] for f, _ in IBG_FIELDS[name]}
     for f, ftype in IBG_FIELDS[name]:
-        values = [r.get(f) for r in rows]
         if ftype == "timestamptz":
-            values = [v if isinstance(v, dt.datetime) or v is None else dt.datetime.fromisoformat(v)
-                      for v in values]
-            values = [v.astimezone(dt.timezone.utc) if isinstance(v, dt.datetime) else None
-                      for v in values]
-        cols[f] = values
-    return pa.table(cols)
+            vals = []
+            for v in data[f]:
+                if isinstance(v, dt.datetime):
+                    vals.append(v.astimezone(dt.timezone.utc))
+                elif v is not None:
+                    vals.append(dt.datetime.fromisoformat(v).astimezone(dt.timezone.utc))
+                else:
+                    vals.append(None)
+            data[f] = vals
+    return pa.table(data, schema=sch)
 
 
 # ------------------------------------------------------------ fio parsing
@@ -548,7 +548,7 @@ def render_markdown(meta: dict, aggs: list[dict], cases_status: dict,
 
 # ---------------------------------------------------------------- cleanup
 
-def cleanup_resources(a: argparse.Namespace, slug: str) -> bool:
+def cleanup_resources(a: Config, slug: str) -> bool:
     name = resource_name(a, slug) if slug else None
     rc_ok = True
     for kind in ("pod", "pvc", "configmap"):
@@ -564,7 +564,7 @@ def cleanup_resources(a: argparse.Namespace, slug: str) -> bool:
     return rc_ok
 
 
-def cleanup_only(a: argparse.Namespace) -> int:
+def cleanup_only(a: Config) -> int:
     print(f"cleanup run-tag={a.cleanup_only}")
     a.run_tag = a.cleanup_only
     ok = True
@@ -583,7 +583,7 @@ def cleanup_only(a: argparse.Namespace) -> int:
 
 # ------------------------------------------------------------------ case
 
-def run_case(a: argparse.Namespace, oc: OC, run_dir: Path, slug: str,
+def run_case(a: Config, oc: OC, run_dir: Path, slug: str,
              working_set: str, jobfile_text: str, cache_suspect: bool,
              cat, all_points: list[dict]) -> tuple[str, str]:
     """Returns (status, failed_stage)."""
@@ -714,24 +714,59 @@ def git_sha() -> str:
 
 # ------------------------------------------------------------------ main
 
-def main(argv: list[str]) -> int:
-    a = parse_args(argv)
+def _usage_error(msg: str):
+    print(f"usage error: {msg}", file=sys.stderr)
+    raise typer.Exit(code=EXIT_USAGE)
+
+
+def main(
+    run_tag: Annotated[str, typer.Option("--run-tag", help="Run identity; defaults to a UTC timestamp.")] = "",
+    node: Annotated[str, typer.Option("--node", help="Nominated node (required unless --cleanup-only).")] = "",
+    sc: Annotated[str, typer.Option("--storage-class", help="Raw-block-capable storage class (required unless --cleanup-only).")] = "",
+    namespace: Annotated[str, typer.Option("--namespace")] = "default",
+    cases: Annotated[str, typer.Option("--cases", help="Comma-separated subset of the six canonical case slugs; canonical order is applied.")] = ",".join(CASE_ORDER),
+    pod_cpu: Annotated[str, typer.Option("--pod-cpu", help="One container size per run (FR-014).")] = "2",
+    pod_mem: Annotated[str, typer.Option("--pod-mem")] = "4096Mi",
+    volume_size: Annotated[str, typer.Option("--volume-size", help="FR-005 sizing rule evaluated against it.")] = "512Gi",
+    repeats: Annotated[int, typer.Option("--repeats", help="Per-datapoint repeats (FR-015).")] = 3,
+    fio_jobfile: Annotated[str, typer.Option("--fio-jobfile", help="Override job sections file; chart default otherwise.")] = "",
+    workload_image: Annotated[str, typer.Option("--workload-image", help="Tooling image override (FR-009 airgap).")] = "quay.io/rh-ee-chbutler/perf-utils:v0.1.0",
+    results_root: Annotated[str, typer.Option("--results-root", help="Run folders + Iceberg warehouse live under it.")] = "./results",
+    assume_cache_suspect: Annotated[bool, typer.Option("--assume-cache-suspect", help="Force cache-suspect stamping.")] = False,
+    initdata: Annotated[str, typer.Option("--initdata", help="debug|cluster-default (coco cases).")] = "debug",
+    image_pull_secret: Annotated[str, typer.Option("--image-pull-secret", help="Airgap mirror auth secret name.")] = "",
+    cleanup_only: Annotated[str, typer.Option("--cleanup-only", help="Delete leftovers for RUN_TAG and exit.")] = "",
+    coco_validate: Annotated[str, typer.Option("--coco-validate", help="proxy|strong TDX validation.")] = "proxy",
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Preflight (incl. transient probe PVC) then stop.")] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Skip the interactive provisioning confirmation.")] = False,
+) -> None:
+    """io-benchmark serial case runner (spec 004-benchmark-harness FR-018)."""
+    a = Config(run_tag=run_tag, node=node, sc=sc, namespace=namespace,
+               cases=cases, pod_cpu=pod_cpu, pod_mem=pod_mem,
+               volume_size=volume_size, repeats=repeats, fio_jobfile=fio_jobfile,
+               workload_image=workload_image, results_root=results_root,
+               assume_cache_suspect=assume_cache_suspect, initdata=initdata,
+               image_pull_secret=image_pull_secret, cleanup_only=cleanup_only,
+               coco_validate=coco_validate, dry_run=dry_run, yes=yes)
     if a.cleanup_only:
-        return cleanup_only(a)
+        raise typer.Exit(code=cleanup_only(a))
+    if not a.node or not a.sc:
+        _usage_error("--node and --storage-class are required (or use --cleanup-only RUN_TAG)")
+    if a.initdata not in ("debug", "cluster-default"):
+        _usage_error("--initdata must be debug|cluster-default")
+    if a.coco_validate not in ("proxy", "strong"):
+        _usage_error("--coco-validate must be proxy|strong")
     if a.repeats < 1:
-        print("usage error: --repeats must be >= 1", file=sys.stderr)
-        return EXIT_USAGE
+        _usage_error("--repeats must be >= 1")
     if not a.run_tag:
         a.run_tag = utcnow().strftime("%Y%m%dT%H%M%SZ")
     if not re.fullmatch(r"[a-zA-Z0-9.-]{1,40}", a.run_tag):
-        print("usage error: --run-tag must match [a-zA-Z0-9.-]{1,40}", file=sys.stderr)
-        return EXIT_USAGE
+        _usage_error("--run-tag must match [a-zA-Z0-9.-]{1,40}")
 
     requested = [c.strip() for c in a.cases.split(",") if c.strip()]
     bad = [c for c in requested if c not in CASE_ORDER]
     if bad:
-        print(f"usage error: unknown case(s): {bad}; valid {CASE_ORDER}", file=sys.stderr)
-        return EXIT_USAGE
+        _usage_error(f"unknown case(s): {bad}; valid {CASE_ORDER}")
     cases = [c for c in CASE_ORDER if c in requested]
 
     oc = OC(a.namespace)
@@ -746,7 +781,7 @@ def main(argv: list[str]) -> int:
     fatal, mem_gib, cache_suspect, tenant_warns = preflight(a, oc, cases)
 
     if fatal:
-        return EXIT_PREFLIGHT
+        raise typer.Exit(code=EXIT_PREFLIGHT)
 
     # Raw-block probe: transient 1Gi PVC, created+deleted here so dry-run output
     # also covers storage-class capability (research R8 / quickstart §3).
@@ -754,19 +789,19 @@ def main(argv: list[str]) -> int:
 
     if a.dry_run:
         print("DRY RUN: preflight complete; nothing provisioned (probe PVC transient).")
-        return EXIT_OK
+        return
 
     if not a.yes:
         try:
-            answer = input(
+            confirmed = typer.confirm(
                 f"About to provision {len(cases)} serial benchmark pods on node "
-                f"{a.node} (pvc size {a.volume_size}, run-tag {a.run_tag}). "
-                "Type 'yes' to continue: ")
-        except EOFError:
-            answer = ""
-        if answer.strip().lower() != "yes":
+                f"{a.node} (pvc size {a.volume_size}, run-tag {a.run_tag}). Continue?",
+                default=False)
+        except typer.Abort:
+            confirmed = False
+        if not confirmed:
             print("aborted by operator (use --yes to pre-confirm)", file=sys.stderr)
-            return EXIT_USAGE
+            raise typer.Exit(code=EXIT_USAGE)
 
     # Working set: 90% of volume, <= 1Ti default ceiling documented in sizing doc.
     working_set = f"{max(1, int(quantity_gib(a.volume_size) * 0.9))}Gi"
@@ -841,10 +876,11 @@ def main(argv: list[str]) -> int:
         meta["cases_completed"] = ",".join(k for k, v in cases_status.items() if v == "OK")
         # NOTE: still writes whatever was collected (FR-001 continuation).
         write_summary_and_meta(a, run_dir, root, cat, meta, all_points, cases_status, cache_suspect, tenant_warns)
-        return EXIT_CASE_FAILED
+        raise typer.Exit(code=EXIT_CASE_FAILED)
 
-    return finalize_and_exit(a, run_dir, root, cat, meta, all_points,
-                             cases_status, cache_suspect, tenant_warns)
+    raise typer.Exit(code=finalize_and_exit(a, run_dir, root, cat, meta,
+                                           all_points, cases_status,
+                                           cache_suspect, tenant_warns))
 
 
 def write_summary_and_meta(a, run_dir, root, cat, meta, all_points,
@@ -878,5 +914,14 @@ def finalize_and_exit(a, run_dir, root, cat, meta, all_points,
     return EXIT_OK
 
 
+def cli() -> None:
+    """Console-script / __main__ entry: single-command Typer app.
+
+    `python3 bench.py ...` and the installed `io-bench` console script land
+    here; exit codes are raised via typer.Exit(code=...).
+    """
+    typer.run(main)
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    cli()

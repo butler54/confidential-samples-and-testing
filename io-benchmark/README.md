@@ -30,7 +30,7 @@ images. Override with a mirror/pinned digest via `--workload-image` /
 |---|---|---|
 | `oc` cluster login, permission to create Pod/PVC/ConfigMap in the namespace | all case operations | For LUKS/`privileged` pods the namespace's SA needs a `privileged`-capable SCC binding (cluster-admin action, FR-010 escalation documentation) |
 | `helm` v3 | chart rendering | |
-| Python 3.12 on control machine | approved tool | `pip install -r io-benchmark/requirements.txt` (pins: pyiceberg, pyarrow) |
+| Python 3.12 on control machine | approved tool | `pip install ./io-benchmark/tools` (pyproject declares+pins: pyiceberg, pyarrow, typer; installs the `io-bench` console script) |
 | Nominated **isolated** node | FR-016 prerequisite — harness never cordons/evicts | Drain tenant workloads and system daemons aside; harness census-warns only |
 | Storage class supporting `volumeMode: Block` | raw-block benchmark device | Hostpath-csi and similar filesystem-only classes do not work (preflight probe catches this) |
 | `kata` / `kata-cc` runtime classes | for kata/coco cases | Only checked when those cases are selected |

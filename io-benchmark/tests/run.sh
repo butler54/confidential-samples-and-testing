@@ -9,6 +9,7 @@ helm lint "$chart" --strict --kube-version 1.33.0 --set node.name=static.example
 shellcheck -x "$chart/tests/run.sh"
 sh -n "$chart/tests/run.sh"
 python3 -m py_compile "$chart/tools/bench.py"
+python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb'))" "$chart/tools/pyproject.toml"
 # Constitution v2.0.0 IV: this repository defines/builds no containers.
 if find "$chart" -iname 'Containerfile' -o -iname 'Dockerfile' | grep -q .; then
   echo "FAIL: container definition found in $chart" >&2

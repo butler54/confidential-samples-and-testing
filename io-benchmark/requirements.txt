@@ -1,4 +1,0 @@
-# Pinned control-side Python dependencies for tools/bench.py only (FR-018 approved tool).
-# Nothing here runs in-cluster.
-pyiceberg[sql-sqlite]==0.9.1
-pyarrow==19.0.1

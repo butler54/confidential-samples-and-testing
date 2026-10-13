@@ -62,4 +62,4 @@ Expected: strictly one benchmark pod at a time (`oc get pods -A | grep io-benchm
 
 ## 8. Mirroring (airgap) reminder
 
-Point `--workload-image` (or your namespace's `--image-pull-secret`) at your internal mirror of `quay.io/rh-ee-chbutler/perf-utils`; that one image is the only container image requirement. The tool-side Python deps are pinned in `io-benchmark/requirements.txt` — vendored/mirrored per your environment's Python packaging approach. No other network dependencies at run time. See README §Airgap.
+Point `--workload-image` (or your namespace's `--image-pull-secret`) at your internal mirror of `quay.io/rh-ee-chbutler/perf-utils`; that one image is the only container image requirement. The tool-side Python deps are declared and pinned in `io-benchmark/tools/pyproject.toml` — vendor/mirror per your environment's Python packaging approach (`pip install ./io-benchmark/tools`, or install the same pinned versions from an internal index). No other network dependencies at run time. See README §Airgap.

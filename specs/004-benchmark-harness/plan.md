@@ -23,7 +23,8 @@ feature defines/builds zero container images).
 **Language/Version**: Python 3.12 for the approved control-side tool (pinned deps: PyIceberg, PyArrow);
 Helm 3 (chart apiVersion v2); fio 3.x inside benchmark pods (from the perf-utils image)
 
-**Primary Dependencies**: `helm`, `oc`, Python 3.12 + `pyiceberg`/`pyarrow` (pinned `requirements.txt`),
+**Primary Dependencies**: `helm`, `oc`, Python 3.12 + `pyiceberg`/`pyarrow`/`typer` (declared+pinned
+in `tools/pyproject.toml`),
 fio 3.x, xfsprogs + cryptsetup in pod (encrypted cases) — all in-pod binaries come from the existing
 `quay.io/rh-ee-chbutler/perf-utils` image; no image is defined or built by this repository
 
@@ -62,7 +63,7 @@ appends across invocations
 | II. Helm-First Delivery | PASS | Case workload is a Helm chart with comprehensive values; the one script (Python control tool) is explicitly approved in advance, recorded in spec Clarifications (session 2026-10-13 post-v2.0.0), with documented rationale — the workflow's serial repeat/exec/log-collection complexity exceeds what shell orchestration handles cleanly |
 | III. Downstream-First Dependencies | PASS (documented) | fio/PyIceberg are upstream community tools with no Red Hat-supported equivalents; justification recorded in README + research R1/R3 |
 | IV. No Container Definitions | PASS | Repository defines/builds zero container images; the single in-cluster tooling image is the already-published, externally-built `quay.io/rh-ee-chbutler/perf-utils`, consumed by overridable value with ownership documented in README (FR-017) |
-| V. CI/CD and Version Discipline | PASS | Chart added to the existing CI matrix; pinned versions and `requirements.txt` throughout |
+| V. CI/CD and Version Discipline | PASS | Chart added to the existing CI matrix; pinned versions and `tools/pyproject.toml` declaration |
 | VI. Simplicity and Explainability | PASS | Chart + one tool + docs; every component justified in research.md |
 
 No violations requiring Complexity Tracking justification.
@@ -95,8 +96,8 @@ io-benchmark/
 │   ├── configmap-fio-job.yaml # operator-overridable job file
 │   └── NOTES.txt
 ├── tools/
-│   └── bench.py               # approved single Python entrypoint: preflight → serial cases → summarize
-├── requirements.txt           # pinned pyiceberg/pyarrow (control-side only)
+│   ├── bench.py               # approved single Python entrypoint: preflight → serial cases → summarize
+│   └── pyproject.toml         # declared+pinned deps (pyiceberg/pyarrow/typer), io-bench console script
 ├── docs/
 │   ├── benchmark-selection.md # US1/FR-011: fio vs sysbench vs dbench analysis
 │   └── sizing-guidance.md     # FR-005/FR-012: cache-defeat sizing + variance interpretation

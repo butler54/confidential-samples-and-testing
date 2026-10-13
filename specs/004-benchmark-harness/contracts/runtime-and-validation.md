@@ -5,7 +5,7 @@ Mirrors previous features' contracts: honest declaration of what repository vali
 ## Runtime boundary
 
 - **In-repo**: Helm chart templates; the single explicitly-approved Python tool (`tools/bench.py`),
-  its pinned `requirements.txt`; docs (operator guide, sizing guidance, benchmark-selection
+  its pinned `tools/pyproject.toml`; docs (operator guide, sizing guidance, benchmark-selection
   analysis — the US1/FR-011 deliverable); `tests/` pipeline (`helm lint --strict`, `shellcheck`
   where shell remains, `sh -n`, `python3 -m py_compile`) wired into the existing CI matrix.
 - **External images**: exactly one — the existing `quay.io/rh-ee-chbutler/perf-utils` image
@@ -23,7 +23,7 @@ Mirrors previous features' contracts: honest declaration of what repository vali
    (six case value shapes; encrypted/unencrypted; namespaced rendering); `values.schema.json`
    enforced.
 2. Tool hygiene: `python3 -m py_compile tools/bench.py` clean; any residual shell clean under
-   `shellcheck` + `sh -n`; `requirements.txt` pins resolve.
+   `shellcheck` + `sh -n`; `tools/pyproject.toml` parses and its pins resolve.
 3. Zero container definitions in-repo (`find -iname '*Containerfile*' -o -iname 'Dockerfile'`
    is empty outside `staging/`); no runtime Python inside charts/pods; no forbidden registries.
 4. Markdown links in docs resolve (light sanity scan).

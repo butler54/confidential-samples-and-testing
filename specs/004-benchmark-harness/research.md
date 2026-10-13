@@ -47,7 +47,7 @@
 
 ## R3 — Summarization and Iceberg authoring (approved local Python tool)
 
-**Decision**: All control-side logic — serial case orchestration, per-repeat exec driving, log collection, fio JSON parsing/normalization, Markdown table emission, and Iceberg appends — lives in one **explicitly-approved Python tool** (`io-benchmark/tools/bench.py`; FR-018) running on the operator's control machine, with pinned dependencies (PyIceberg + PyArrow, `requirements.txt`). Markdown table and Iceberg appends are produced by the same parse pass, guaranteeing human/machine parity. The Iceberg store uses a **SQL (SQLite) catalog** backed by a local warehouse directory — fully file-local, no services.
+**Decision**: All control-side logic — serial case orchestration, per-repeat exec driving, log collection, fio JSON parsing/normalization, Markdown table emission, and Iceberg appends — lives in one **explicitly-approved Python tool** (`io-benchmark/tools/bench.py`; FR-018) running on the operator's control machine, with pinned dependencies (PyIceberg + PyArrow + Typer, declared in `tools/pyproject.toml`). Markdown table and Iceberg appends are produced by the same parse pass, guaranteeing human/machine parity. The Iceberg store uses a **SQL (SQLite) catalog** backed by a local warehouse directory — fully file-local, no services.
 
 **Rationale**: Iceberg authoring genuinely requires PyIceberg; scripting is permitted because it was **explicitly approved in advance** and recorded in the spec Clarifications (constitution v2.0.0 II). One approved tool owning the whole control flow replaces the earlier plan's two-part design (shell orchestrator + external `fio-summarizer` image), which was superseded when the constitution moved to v2.0.0 and FR-017/FR-018 were added.
 

@@ -5,7 +5,8 @@ The end-user interface of the io-benchmark harness. Walkthroughs and tests may a
 ## Entrypoint
 
 ```text
-python3 io-benchmark/tools/bench.py [flags]
+io-bench [flags]                 # when installed: pip install ./io-benchmark/tools
+python3 io-benchmark/tools/bench.py [flags]   # or in-place
 ```
 
 Explicitly-approved Python tool (spec FR-018, constitution v2.0.0 II) + `oc` + `helm` on the control
