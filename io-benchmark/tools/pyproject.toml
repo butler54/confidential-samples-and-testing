@@ -7,7 +7,7 @@
 # Then run:           io-bench --node ... --storage-class ...
 # or without install: python3 ./io-benchmark/tools/bench.py ...
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -16,9 +16,9 @@ version = "0.2.0"
 description = "Serial cache-defeating IO benchmark harness control tool (feature 004-benchmark-harness)"
 requires-python = ">=3.12"
 dependencies = [
-    "pyiceberg[sql-sqlite]==0.9.1",
-    "pyarrow==19.0.1",
-    "typer==0.16.0",
+    "pyiceberg[sql-sqlite]==0.12.0",
+    "pyarrow==26.0.0",
+    "typer==0.27.3",
 ]
 
 [project.scripts]
