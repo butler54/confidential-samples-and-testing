@@ -18,10 +18,11 @@ Each main entrypoint waits for verified intended storage before creating/readbac
 |---|---|
 | [memory-security](memory-security/README.md) | Graduate host memory visibility across ordinary, sandboxed and confidential tiers, and show that HTTP (unlike HTTPS) leaves data in host memory buffers. Serves its magic string from a cluster-hosted endpoint over an HTTPS+HTTP route — no GitHub reach required. **DEMONSTRATION ONLY: the endpoint intentionally exposes plaintext HTTP, confined to one designated fetch pod.** |
 | [kbs-client](kbs-client/README.md) | Minimal confidential key-broker client pod for manual, attestation-gated retrievals from the cluster Trustee; independent of the other examples. |
+| [io-benchmark](io-benchmark/README.md) | Serial, cache-defeating IO benchmark (fio) across plain/kata/coco pods with ±guest-side LUKS; results land in a Markdown table plus self-describing local Apache Iceberg tables. Tooling image `perf-utils` is built externally and consumed overridable; the control-side runner is the only approved runtime-Python tool in the repository (spec 004). |
 
-These two examples supersede the retired `butler54/coco-baremetal` test workflows (their contents, plus an offline-capable endpoint and the HTTP/TLS comparison). Tooling images they reference (coredump helper, key-broker client) are built in `butler54/containers` and consumed pinned; nothing is built in this repository.
+These examples supersede the retired `butler54/coco-baremetal` test workflows (their contents, plus an offline-capable endpoint and the HTTP/TLS comparison). Tooling images they reference (coredump helper, key-broker client, perf-utils) are built in `butler54/containers` and consumed pinned/overridable; nothing is built in this repository.
 
-Shared conventions: use distinct Helm release names to coexist; each directory includes its own chart, shell/values, guide and lint/shell checks. No runtime Python, custom image builds or shared chart framework.
+Shared conventions: use distinct Helm release names to coexist; each directory includes its own chart, shell/values, guide and lint/shell checks. No runtime Python except where explicitly approved (io-benchmark), no custom image builds, no shared chart framework.
 
 **Testing only: delete and recreate releases for chart changes; upgrades are unsupported.** Pod replacement preserves the claim. Block release uninstall deletes owned claims/data through a compatible Delete provider; NFS export/data, external Secrets/initdata and Trustee infrastructure remain unowned and preserved.
 

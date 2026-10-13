@@ -1,0 +1,28 @@
+# Packaging for tools/bench.py — the single explicitly-approved control-side
+# Python tool (spec 004-benchmark-harness FR-018; constitution v2.0.0 II).
+# All runtime dependencies are declared AND pinned here; this file replaces
+# the former io-benchmark/requirements.txt. Nothing here runs in-cluster.
+#
+# Install:            pip install ./io-benchmark/tools
+# Then run:           io-bench --node ... --storage-class ...
+# or without install: python3 ./io-benchmark/tools/bench.py ...
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "io-bench"
+version = "0.2.0"
+description = "Serial cache-defeating IO benchmark harness control tool (feature 004-benchmark-harness)"
+requires-python = ">=3.12"
+dependencies = [
+    "pyiceberg[sql-sqlite]==0.9.1",
+    "pyarrow==19.0.1",
+    "typer==0.16.0",
+]
+
+[project.scripts]
+io-bench = "bench:cli"
+
+[tool.setuptools]
+py-modules = ["bench"]

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: io-benchmark
+description: Serial single-case IO benchmark pod (fio) for plain/kata/coco pods with raw-block volumes
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.33.0-0"

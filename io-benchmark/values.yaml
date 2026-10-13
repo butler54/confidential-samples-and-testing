@@ -1,0 +1,107 @@
+# Example image built externally from butler54/containers (standard-quay/perf-utils).
+# This repository defines/builds NO container images (constitution v2.0.0 IV); the value below
+# is a documented default that the operator overrides for airgap mirrors. Pin a digest or
+# environment-specific tag via --set images.workload=... at render time.
+case:
+  # One of: plain, plain-luks, kata, kata-luks, coco, coco-luks
+  slug: plain
+  # "" for plain pods, kata, kata-cc for the runtime-class cases
+  runtimeClassName: ""
+  # true => guest-side LUKS+XFS (demo static key); false => XFS on the raw block device
+  encrypted: false
+node:
+  # REQUIRED: the nominated node (one node per run set, FR-003)
+  name: ""
+pvc:
+  # REQUIRED: storage class able to provision volumeMode: Block claims
+  storageClass: ""
+  # Benchmark volume size; FR-005 sizing rule: >= node RAM + margin (warn-only)
+  size: 512Gi
+pod:
+  cpu: "2"
+  mem: 4096Mi
+images:
+  workload: quay.io/rh-ee-chbutler/perf-utils:v0.1.0
+namespace: default
+imagePullSecrets: []
+runTag: "" # per-run identity; set by tools/bench.py at render time
+fio:
+  # Working set size for the fio jobs (fits within pvc.size with margin, FR-007);
+  # computed and set by tools/bench.py.
+  workingSetSize: 64Gi
+initdata:
+  # debug|cluster-default; only affects kata-cc (coco) cases
+  mode: debug
+  encoded: ""
+  configMapName: ""
+# DEMO ONLY: static LUKS passphrase for the encrypted cases (spec Assumption: demonstration-
+# grade static key unlock is acceptable; attested key delivery is out of scope). Never use
+# this for data that matters.
+demoLuksKey: "DEMO-ONLY-io-bench-static-key"
+# Operator-overridable fio job file (sections only; the [global] header is injected by the
+# template with direct=1 defaults, computed size=, etc.). Default: seq+rand x read/write,
+# block-size ladder 4k, 64k, 1M. FR-006.
+fioJobInline: |
+  [seqread-bs4k]
+  bs=4k
+  rw=read
+  stonewall
+  [seqread-bs64k]
+  bs=64k
+  rw=read
+  stonewall
+  [seqread-bs1m]
+  bs=1m
+  rw=read
+  stonewall
+  [seqwrite-bs4k]
+  bs=4k
+  rw=write
+  stonewall
+  [seqwrite-bs64k]
+  bs=64k
+  rw=write
+  stonewall
+  [seqwrite-bs1m]
+  bs=1m
+  rw=write
+  stonewall
+  [randread-bs4k]
+  bs=4k
+  rw=randread
+  stonewall
+  [randread-bs64k]
+  bs=64k
+  rw=randread
+  stonewall
+  [randread-bs1m]
+  bs=1m
+  rw=randread
+  stonewall
+  [randwrite-bs4k]
+  bs=4k
+  rw=randwrite
+  stonewall
+  [randwrite-bs64k]
+  bs=64k
+  rw=randwrite
+  stonewall
+  [randwrite-bs1m]
+  bs=1m
+  rw=randwrite
+  stonewall
+  [randrw-bs4k]
+  bs=4k
+  rw=randrw
+  rwmixread=70
+  stonewall
+  [randrw-bs64k]
+  bs=64k
+  rw=randrw
+  rwmixread=70
+  stonewall
+  [randrw-bs1m]
+  bs=1m
+  rw=randrw
+  rwmixread=70
+  stonewall

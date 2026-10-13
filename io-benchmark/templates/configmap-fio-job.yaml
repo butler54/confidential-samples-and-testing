@@ -1,0 +1,30 @@
+{{- /*
+fio job file for the case. The [global] block enforces the cache-defeat
+defaults (direct=1, invalidate=1, ramp_time, time_based, libaio engine) from
+research R7; the operator's fioJobInline supplies the section sweep (FR-006).
+fio executes this file once per repeat, invoked by tools/bench.py via oc exec.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "io-bench-%s-%s-fio" (default .Release.Name .Values.runTag | trunc 20) .Values.case.slug }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: io-benchmark
+    io-benchmark/run-tag: {{ .Values.runTag | quote }}
+    io-benchmark/case: {{ .Values.case.slug | quote }}
+data:
+  fio.job: |
+    [global]
+    ioengine=libaio
+    direct=1
+    invalidate=1
+    iodepth=32
+    time_based=1
+    runtime=60
+    ramp_time=10
+    size={{ .Values.fio.workingSetSize }}
+    directory=/benchdata
+    random_generator=tausworthe64
+    group_reporting=0
+{{ .Values.fioJobInline | indent 4 }}
