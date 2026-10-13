@@ -17,12 +17,10 @@ updates:
       prefix: "deps"
       include: "scope"
     groups:
-      pinned-tooling:
+      # Aggregate every pip update (all types, incl. majors) into ONE PR.
+      all:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -34,3 +32,8 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+    groups:
+      # Aggregate every action update into ONE PR per week.
+      all:
+        patterns:
+          - "*"
