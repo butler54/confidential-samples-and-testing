@@ -1,0 +1,7 @@
+apiVersion: v2
+name: gpu-benchmark
+description: Serial single-case GPU LINPACK benchmark pod (HPL / HPL-MxP) for plain vs confidential (kata-cc-nvidia-gpu) pods
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.33.0-0"

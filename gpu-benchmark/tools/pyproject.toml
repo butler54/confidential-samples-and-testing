@@ -1,0 +1,29 @@
+# Packaging for tools/ — the single explicitly-approved control-side Python
+# tool (spec 005-gpu-confidential-benchmark FR-015; constitution v2.0.0 II).
+# All runtime dependencies are declared AND pinned here. Nothing here runs
+# in-cluster.
+#
+# Install:            pip install ./gpu-benchmark/tools
+# Then run:           gpu-bench --node ...
+# or without install: python3 ./gpu-benchmark/tools/bench.py ...
+[build-system]
+requires = ["setuptools>=84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpu-bench"
+version = "0.1.0"
+description = "Serial GPU LINPACK benchmark harness control tool comparing confidential vs standard pods (feature 005-gpu-confidential-benchmark)"
+requires-python = ">=3.12"
+dependencies = [
+    "pyiceberg[sql-sqlite]==0.12.0",
+    "pyarrow==26.0.0",
+    "typer==0.27.3",
+    "pyyaml==6.0.2",
+]
+
+[project.scripts]
+gpu-bench = "bench:cli"
+
+[tool.setuptools]
+py-modules = ["bench", "catalog"]

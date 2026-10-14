@@ -1,0 +1,31 @@
+# NVIDIA HPL-MxP (mixed-precision LINPACK, Tensor Cores) benchmark definition.
+# Catalog contract: specs/005-gpu-confidential-benchmark/contracts/benchmark-catalog.md
+# Selection rationale: ../docs/benchmark-selection.md (FR-003)
+id: hpl-mxp
+precision: mixed
+version: "26.02"
+docs_ref: docs/benchmark-selection.md
+parameter_inputs:
+  # Fraction of aggregate GPU memory the problem fills (docs/sizing-guidance.md)
+  memory_fill: 0.8
+  # HPL-MxP default block size per NVIDIA's sample invocations (Tensor Core tiles)
+  default_nb: 2048
+  process_grid: square-ish
+# In-pod command; parameters computed ONCE per run, identical across runtime
+# classes (FR-004). hpl-mxp.sh generates the input file and launches MPI
+# internally (one GPU per process).
+command_template: >-
+  cd /workspace/hpl-mxp-linux-x86_64 && ./hpl-mxp.sh --n {n} --nb {nb} --nprow {p} --npcol {q}
+parser:
+  # HPL-MxP prints the same shape of summary row (Gflops column); the LAST
+  # matching row in the output is the result (runner takes the last match).
+  metric:
+    pattern: '^\s*\S+\s+\d+\s+\d+\s+\d+\s+\d+\s+[0-9.]+\s+([0-9.eE+-]+)\s*$'
+    group: 1
+    unit: gflops
+  # Standard residual/refinement check verdict (mixed-precision iteration
+  # must converge to the fp64 tolerance).
+  verification:
+    pattern: '=\s*[0-9.eE+-]+\s*\.{2,}\s*(PASSED|FAILED)'
+    group: 1
+    pass_value: PASSED

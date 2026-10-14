@@ -1,0 +1,11 @@
+GPU benchmark case rendered for run {{ .Values.runTag | default "(unset)" }}.
+
+The pod idles; the control-side runner (gpu-bench) drives the benchmark via
+bounded `oc exec` and deletes this pod when the case completes. Nothing is
+produced in-cluster: results land on the control machine under
+results/{{ .Values.runTag }}/ (FR-008).
+
+If you applied this chart manually (not via gpu-bench), expect:
+- Pod {{ printf "gpu-bench-%s-%s" (default "gpu-bench" .Values.runTag | trunc 20) .Values.case.slug }} on node {{ .Values.node.name }}
+- Case parameters recorded in the mounted /etc/bench/case.env
+- Benchmark command (from the catalog definition): {{ .Values.benchmark.command | default "(runner-supplied)" }}
