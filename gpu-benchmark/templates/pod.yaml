@@ -1,0 +1,61 @@
+{{- /*
+Benchmark pod: one case = one pod, run serially by tools/bench.py (FR-009).
+The container idles (`sleep infinity`); the runner executes the benchmark
+via bounded `oc exec` per repeat (io-benchmark pattern, research R4/R7).
+
+No privileged SCC: unlike io-benchmark (raw-block + LUKS), GPU assignment
+flows through the device plugin (`case.gpuResource`), which needs no extra
+capabilities — the documented SCC posture is the namespace default.
+
+The coco.io/skip-initdata annotation (runtime-class cases only) reflects the
+spec clarification: runtime-class-only confidential tier, no Trustee/attestation
+integration in this example.
+*/ -}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ printf "gpu-bench-%s-%s" (default "gpu-bench" .Values.runTag | trunc 20) .Values.case.slug }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: gpu-benchmark
+    app.kubernetes.io/component: benchmark
+    gpu-benchmark/run-tag: {{ .Values.runTag | quote }}
+    gpu-benchmark/case: {{ .Values.case.slug | quote }}
+  annotations:
+  {{- if and .Values.case.runtimeClassName .Values.coco.skipInitdata }}
+    coco.io/skip-initdata: "true"
+  {{- end }}
+spec:
+  nodeName: {{ .Values.node.name | quote }}
+  restartPolicy: Never
+  {{- if .Values.case.runtimeClassName }}
+  runtimeClassName: {{ .Values.case.runtimeClassName | quote }}
+  {{- end }}
+  {{- if .Values.imagePullSecrets }}
+  imagePullSecrets:
+{{ .Values.imagePullSecrets | toYaml | indent 4 }}
+  {{- end }}
+  containers:
+    - name: benchmark
+      image: {{ .Values.images.workload | quote }}
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/sh", "-c"]
+      args:
+        - exec sleep infinity
+      resources:
+        requests:
+          cpu: {{ .Values.pod.cpu | quote }}
+          memory: {{ .Values.pod.mem | quote }}
+          {{ .Values.case.gpuResource }}: {{ .Values.case.gpuCount | quote }}
+        limits:
+          cpu: {{ .Values.pod.cpu | quote }}
+          memory: {{ .Values.pod.mem | quote }}
+          {{ .Values.case.gpuResource }}: {{ .Values.case.gpuCount | quote }}
+      volumeMounts:
+        - name: benchcase
+          mountPath: /etc/bench
+          readOnly: true
+  volumes:
+    - name: benchcase
+      configMap:
+        name: {{ printf "gpu-bench-%s-%s-case" (default "gpu-bench" .Values.runTag | trunc 20) .Values.case.slug }}

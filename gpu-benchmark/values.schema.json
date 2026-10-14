@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "gpu-benchmark values",
+  "description": "Input contract for the gpu-benchmark chart (feature 005-gpu-confidential-benchmark). Values are set per case by tools/bench.py; these constraints are enforced on every helm render.",
+  "type": "object",
+  "required": ["case", "node", "pod", "benchmark", "images", "namespace", "runTag"],
+  "additionalProperties": false,
+  "properties": {
+    "case": {
+      "type": "object",
+      "required": ["slug", "runtimeClassName", "gpuResource", "gpuCount"],
+      "additionalProperties": false,
+      "properties": {
+        "slug": {"type": "string", "minLength": 1, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+        "runtimeClassName": {"type": "string"},
+        "gpuResource": {"type": "string", "pattern": "^nvidia\\.com/(gpu|pgpu)$"},
+        "gpuCount": {"type": "integer", "minimum": 1, "maximum": 16}
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1}
+      }
+    },
+    "pod": {
+      "type": "object",
+      "required": ["cpu", "mem"],
+      "additionalProperties": false,
+      "properties": {
+        "cpu": {"type": "string", "minLength": 1},
+        "mem": {"type": "string", "minLength": 1}
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "required": ["id", "command", "paramsJson"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "command": {"type": "string"},
+        "paramsJson": {"type": "string"}
+      }
+    },
+    "images": {
+      "type": "object",
+      "required": ["workload"],
+      "additionalProperties": false,
+      "properties": {
+        "workload": {"type": "string", "minLength": 1, "not": {"const": "nvcr.io/nvidia/hpc-benchmarks:latest"}}
+      }
+    },
+    "namespace": {"type": "string", "minLength": 1},
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {"type": "object"}
+    },
+    "runTag": {"type": "string", "pattern": "^[a-zA-Z0-9.-]{0,40}$"},
+    "coco": {
+      "type": "object",
+      "required": ["skipInitdata"],
+      "additionalProperties": false,
+      "properties": {
+        "skipInitdata": {"type": "boolean"}
+      }
+    }
+  }
+}

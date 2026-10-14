@@ -1,0 +1,28 @@
+{{- /*
+Case parameter record (configmap-hpl-dat.yaml): the exact benchmark identity,
+command and computed HPL parameters for this case, mounted read-only at
+/etc/bench. Evidence and traceability artifact (FR-004: identical parameters
+across runtime classes; data-model Result Record.hpl_params) — the actual
+HPL.dat is generated in-pod by the benchmark's own helper script from these
+parameters, so what ran is always reconstructible from the archived manifest.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "gpu-bench-%s-%s-case" (default "gpu-bench" .Values.runTag | trunc 20) .Values.case.slug }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: gpu-benchmark
+    gpu-benchmark/run-tag: {{ .Values.runTag | quote }}
+    gpu-benchmark/case: {{ .Values.case.slug | quote }}
+data:
+  case.env: |
+    CASE_SLUG={{ .Values.case.slug | quote }}
+    RUN_TAG={{ .Values.runTag | quote }}
+    NODE={{ .Values.node.name | quote }}
+    BENCHMARK={{ .Values.benchmark.id | quote }}
+    RUNTIME_CLASS={{ .Values.case.runtimeClassName | quote }}
+    GPU_RESOURCE={{ .Values.case.gpuResource | quote }}
+    GPU_COUNT={{ .Values.case.gpuCount | quote }}
+    COMMAND={{ .Values.benchmark.command | quote }}
+    PARAMS={{ .Values.benchmark.paramsJson | quote }}

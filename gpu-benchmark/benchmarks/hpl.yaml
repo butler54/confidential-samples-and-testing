@@ -1,0 +1,34 @@
+# NVIDIA HPL (classic double-precision LINPACK) benchmark definition.
+# Catalog contract: specs/005-gpu-confidential-benchmark/contracts/benchmark-catalog.md
+# Selection rationale: ../docs/benchmark-selection.md (FR-003)
+id: hpl
+precision: fp64
+version: "26.02.01"
+docs_ref: docs/benchmark-selection.md
+parameter_inputs:
+  # Fraction of aggregate GPU memory the problem fills (docs/sizing-guidance.md)
+  memory_fill: 0.8
+  # Default HPL block size for H100-class GPUs (DGEMM tile); operator-overridable
+  default_nb: 384
+  # Process grid rule: factor pair of gpu_count, P <= Q, near-square
+  process_grid: square-ish
+# In-pod command; placeholders are filled by the runner with parameters
+# computed ONCE per run and identical across runtime classes (FR-004).
+# The collection's hpl.sh generates HPL.dat from these parameters and
+# launches MPI internally (one GPU per process, NVIDIA's documented model).
+command_template: >-
+  cd /workspace/hpl-linux-x86_64 && ./hpl.sh --n {n} --nb {nb} --nprow {p} --npcol {q}
+parser:
+  # Final performance row of the standard HPL summary table:
+  #   T/V                N    NB     P     Q               Time                 Gflops
+  #   W..C..           92160  384     1     1              ...              5.0e+01
+  metric:
+    pattern: '^\s*\S+\s+\d+\s+\d+\s+\d+\s+\d+\s+[0-9.]+\s+([0-9.eE+-]+)\s*$'
+    group: 1
+    unit: gflops
+  # Standard LINPACK residual check verdict:
+  #   ||Ax-b||_1/(N*(||A||_1*||x||_1+||b||_1)) =  0.0000e+00 ...... PASSED
+  verification:
+    pattern: '=\s*[0-9.eE+-]+\s*\.{2,}\s*(PASSED|FAILED)'
+    group: 1
+    pass_value: PASSED

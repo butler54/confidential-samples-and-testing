@@ -1,0 +1,55 @@
+# GPU LINPACK benchmark pod chart (feature 005-gpu-confidential-benchmark).
+#
+# One case = one pod, run strictly serially by tools/bench.py (FR-009). The
+# main container idles; bench.py drives the benchmark via bounded `oc exec`
+# so each repeat is independently timed and failures isolate (io-benchmark
+# pattern). All values below are set per case by the runner; defaults here
+# exist for helm lint and operator reference only.
+#
+# Workload image (constitution v2.0.0 IV): externally published NVIDIA
+# HPC-Benchmarks collection — this repository defines/builds NO container
+# images. Override with a mirror/pinned digest via --set images.workload=...
+
+case:
+  # Canonical case identity, e.g. hpl-coco-single, hpl-mxp-plain-full
+  slug: hpl-plain-single
+  # "" (plain), kata-nvidia-gpu (kata), kata-cc-nvidia-gpu (coco)
+  runtimeClassName: ""
+  # GPU resource served by the node's device plugin; preflight-detected
+  gpuResource: nvidia.com/gpu
+  # 1 for single-GPU cases; all node GPUs for full-system cases (FR-006)
+  gpuCount: 1
+
+node:
+  # REQUIRED: the nominated node (one node per run, FR-009)
+  name: ""
+
+pod:
+  # Whole-pod sizing; the runner scales CPU/memory per MPI process by GPU
+  # count for full-system cases. HPL wants host RAM headroom but the
+  # working set lives in GPU memory (no PVC in this example).
+  cpu: "8"
+  mem: "32768Mi"
+
+benchmark:
+  # Catalog id of the benchmark being rendered (benchmarks/*.yaml)
+  id: hpl
+  # Exact in-pod command rendered by the runner from the catalog definition
+  # (command_template + computed parameters, FR-004 identical across tiers)
+  command: ""
+  # Resolved parameter record (JSON) for evidence and traceability
+  paramsJson: ""
+
+images:
+  workload: nvcr.io/nvidia/hpc-benchmarks:26.02.01
+
+namespace: default
+imagePullSecrets: []
+runTag: "" # per-run identity; set by tools/bench.py at render time
+
+coco:
+  # Runtime-class cases annotate coco.io/skip-initdata: this example does not
+  # integrate attestation/Trustee (spec clarification 2026-10-14); the skip
+  # annotation keeps confidential pods bootable without a Trustee round-trip.
+  # Set false only if your cluster policy requires real initdata.
+  skipInitdata: true
