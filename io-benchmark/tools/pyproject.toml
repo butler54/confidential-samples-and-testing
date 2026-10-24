@@ -7,7 +7,7 @@
 # Then run:           io-bench --node ... --storage-class ...
 # or without install: python3 ./io-benchmark/tools/bench.py ...
 [build-system]
-requires = ["setuptools>=84.0.0"]
+requires = ["setuptools>=84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
